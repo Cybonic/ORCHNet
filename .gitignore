@@ -1,0 +1,13 @@
+.vscode
+WorkLog.md
+checkpoints/
+__pycache__/
+psftp/
+PointNetVlad.py
+results/
+old/
+tests/
+saved/
+temp/
+predictions/
+*.gif
