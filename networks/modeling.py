@@ -73,19 +73,21 @@ def _load_model(arch_type, backbone, output_dim,output_stride, pretrained_backbo
 # ================================================================
 # PointNet
 # ================================================================
-
-
 def GeM_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('GeM', 'pointnet', output_dim,**argv)
+
+def SPoC_pointnet(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('SPoC', 'pointnet', output_dim,**argv)
 
 def VLAD_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('VLAD', 'pointnet', output_dim,**argv)
 
-def AttVLAD_pointnet(output_dim=128, output_stride=8, pretrained_backbone=False,**argv):
+def AttVLAD_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
-    return _load_model('AttVLAD', 'pointnet', output_dim,output_stride=None, pretrained_backbone=False,**argv)
+    return _load_model('AttVLAD', 'pointnet', output_dim,**argv)
 
 # ================================================================
 # ResNet50
@@ -98,8 +100,8 @@ def GeM_resnet50(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('GeM', 'resnet50', output_dim,**argv)
 
-def AttVLAD_resnet50( output_dim=128, output_stride=8, pretrained_backbone=True,in_channels=1,**argv):
-    return _load_model('AttVLAD', 'resnet50', output_dim,output_stride= output_stride, pretrained_backbone=pretrained_backbone,in_channels=in_channels,**argv)
+def AttVLAD_resnet50( output_dim=128, **argv):
+    return _load_model('AttVLAD', 'resnet50', output_dim,**argv)
 
-def VLAD_resnet50( output_dim=128, output_stride=8, pretrained_backbone=True,in_channels=1,**argv):
-    return _load_model('VLAD', 'resnet50', output_dim,output_stride= output_stride, pretrained_backbone=pretrained_backbone,in_channels=in_channels,**argv)
+def VLAD_resnet50( output_dim=128,**argv):
+    return _load_model('VLAD', 'resnet50', output_dim,**argv)

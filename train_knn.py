@@ -89,7 +89,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'SPoC_resnet50',
+      default=  'VLAD_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='similarityLoss/alpha0.5/distribution',
+      default='similarityLoss/bev/alpha0.5/hard',
       help='Directory to get the trained model.'
   )
 
@@ -132,7 +132,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=500,
+      default=100,
       help='Directory to get the trained model.'
   )
 
@@ -162,28 +162,43 @@ if __name__ == '__main__':
       '--batch_size',
       type=int,
       required=False,
-      default=10,
+      default=20,
       help='Directory to get the trained model.'
   )
   parser.add_argument(
       '--mini_batch_size',
       type=int,
       required=False,
-      default=10, #  Max size (based on the negatives)
+      default=50, #  Max size (based on the negatives)
       help='Directory to get the trained model.'
   )
   parser.add_argument(
       '--debug',
       type=bool,
       required=False,
-      default=False,
+      default=True,
+      help='Directory to get the trained model.'
+  )
+  parser.add_argument(
+      '--loss',
+      type=str,
+      required=False,
+      default = 'LazyTriplet_plus',
+      choices = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
 
   FLAGS, unparsed = parser.parse_known_args()
   
-  force_cudnn_initialization()
+  # Configuration conditions that have to be met
+  assert not (FLAGS.modality=='bev' and FLAGS.model.endswith('pointnet')), 'BEV modality does not work with pointnet'
+  assert not (FLAGS.modality=='pcl' and  'resnet' in FLAGS.model), 'PCL modality does not work with resnet'
+  
   #torch.cuda.empty_cache()
+  torch.autograd.set_detect_anomaly(True)
+  #force_cudnn_initialization()
+  
+
   # open arch config file
   cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
   print("Opening data config file: %s" % cfg_file)
@@ -193,12 +208,14 @@ if __name__ == '__main__':
   print("Opening session config file: %s" % session_cfg_file)
   SESSION = yaml.safe_load(open(session_cfg_file, 'r'))
   
-  SESSION['model']['minibatch_size'] = FLAGS.mini_batch_size
+  # Update config file with new settings
+  SESSION['model']['minibatch_size']  = FLAGS.mini_batch_size
   SESSION['val_loader']['batch_size'] = FLAGS.batch_size
   SESSION['train_loader']['data']['modality'] = FLAGS.modality
   SESSION['val_loader']['data']['modality'] = FLAGS.modality
   SESSION['model']['type'] =  FLAGS.model
   SESSION['trainer']['epochs'] =  FLAGS.epoch
+  SESSION['loss']['type'] = FLAGS.loss
 
   print("----------")
   print("Root: ", SESSION['root'])
@@ -211,7 +228,8 @@ if __name__ == '__main__':
   print("Batch Size : ", str(SESSION['val_loader']['batch_size']))
   print("\n========== MODEL =========")
   print("Model : ", FLAGS.model)
-  print("Resume: ", FLAGS.resume)
+  print("Resume: ", FLAGS.loss)
+  print("Loss: ", FLAGS.resume)
   print("MiniBatch Size: ", str(SESSION['model']['minibatch_size']))
   print("\n==========================")
   print(f'Memory: {FLAGS.memory}')
@@ -221,30 +239,29 @@ if __name__ == '__main__':
   print("Max epochs: %s" %(FLAGS.epoch))
   print("Modality: %s" %(FLAGS.modality))
   print("----------\n")
-
   
+  # For repeatability
   torch.manual_seed(0)
   np.random.seed(0)
-  
-  orchard_loader = load_dataset(FLAGS.dataset,SESSION,FLAGS.memory,debug = FLAGS.debug)
-
   ###################################################################### 
+  # Load Dataset
+  orchard_loader = load_dataset(FLAGS.dataset,SESSION,FLAGS.memory,debug = FLAGS.debug)
+  # Get Loss parameters
   loss_type  = SESSION['loss']['type']
   loss_param = SESSION['loss']['args']
-
+  # Load the loss function
   loss = losses.__dict__[loss_type](**loss_param)
-
+  # Get model parameters based on the modality
   modality = FLAGS.modality + '_param'
-
+  # Load the model
   model_ = model.ModelWrapper(**SESSION['model'],loss= loss, **SESSION[modality])
   
+
   run_name = {  'dataset': str(SESSION['train_loader']['data']['sequence']),
-                'experiment':FLAGS.experiment, 
+                'experiment':os.sep.join([FLAGS.loss,FLAGS.modality]), 
                 'model': FLAGS.model
                 }
 
-  torch.autograd.set_detect_anomaly(True)
-  
   trainer = Trainer(
           model  = model_,
           resume = FLAGS.resume,

@@ -141,7 +141,7 @@ class KittiDataset():
                         pos_range = 10, # max positive range
                         neg_range = 50, # min negative range
                         num_neg   = 10, # num of negative samples
-                        num_pos   = 20, # num of positive samples
+                        num_pos   = 1, # num of positive samples
                         image_proj=True,
                         aug = False,
                         **argv):
@@ -156,7 +156,7 @@ class KittiDataset():
         baseline_idx  = 0 
         self.max_points = max_points
         self.aug = aug
-        self.ground_truth_mode = argv['ground_truth']
+        #self.ground_truth_mode = argv['ground_truth']
         assert isinstance(sequence,list)
 
         for seq in sequence:
@@ -172,7 +172,7 @@ class KittiDataset():
             
             assert os.path.isfile(triplet_file), 'Triplet indice file does not exist: ' + triplet_file
             anchor, _ , _ = parse_triplet_file(triplet_file)
-            positive , negative = gen_ground_truth(pose,anchor,pos_range,neg_range,num_neg,num_pos,mode=self.ground_truth_mode)
+            positive , negative = gen_ground_truth(pose,anchor,pos_range,neg_range,num_neg,num_pos)
             
             self.anchors.extend(baseline_idx + anchor)
             self.positives.extend(baseline_idx + positive)

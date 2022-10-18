@@ -37,6 +37,9 @@ class ModelWrapper(nn.Module):
         anchor,positive,negative = pcl[0]['anchor'],pcl[0]['positive'][0],pcl[0]['negative'][0]
         pose_anchor,pose_positive,pose_negative = pcl[1]['anchor'],pcl[1]['positive'],pcl[1]['negative']
         num_anchor,num_pos,num_neg = anchor.shape[0],positive.shape[0],negative.shape[0]
+        
+        pose = {'a':pose_anchor,'p':pose_positive,'n':pose_negative}
+        
         batch_loss = 0
         #self.minibatch_size = 20
         mini_batch_total_iteration = math.ceil(num_neg/self.minibatch_size)
@@ -60,13 +63,14 @@ class ModelWrapper(nn.Module):
             n_idx = num_pos+num_anchor + num_neg
             
             dq,dp,dn = pred[0:a_idx],pred[a_idx:p_idx],pred[p_idx:n_idx]
-            
-            loss_dict = self.loss(dq,dp,dn,pose_anchor,pose_positive,pose_negative)
-            loss_value = loss_dict['l']
+            descriptor = {'a':dq,'p':dp,'n':dn}
+
+            loss_value,info = self.loss(descriptor = descriptor, poses = pose)
+            #loss_value = loss_value
             loss_value.backward() # Backpropagate gradients and free graph
             batch_loss += loss_value.detach().cpu().item()
 
-        return(loss_dict)
+        return({'l':loss_value,**info})
     
     def get_backbone_params(self):
         return self.model.get_backbone_params()

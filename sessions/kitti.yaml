@@ -79,11 +79,13 @@ pcl_param:
   cluster_size: 64
 
 loss:
-  type: 'DoubleTriplet'
+  type: 'LazyTriplet_plus'
   args:
-    margin: 1
+    margin1: 0.5
+    margin2: 0.5
     metric: 'L2' # [L2,Hinge,cosine,kl_divergence]
-    reduction: 'mean'
+    #reduction: 'mean'
+    #mode: 'hard'
 
 trainer:
   iter_per_epoch: 1

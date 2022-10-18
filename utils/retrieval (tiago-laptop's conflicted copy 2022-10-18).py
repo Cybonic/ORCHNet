@@ -234,7 +234,7 @@ def comp_score_table(target):
 
 
 
-def gen_ground_truth(pose,anchor,pos_thres,neg_thres,num_neg,num_pos):
+def gen_ground_truth(pose,anchor,pos_thres,neg_thres,num_neg,num_pos,mode='hard'):
     '''
     input args: 
         pose [nx3] (x,y,z)
@@ -248,7 +248,7 @@ def gen_ground_truth(pose,anchor,pos_thres,neg_thres,num_neg,num_pos):
         positive indices wrt poses
         negative indices wrt poses
     '''
-    # assert mode in ['hard','distribution']
+    assert mode in ['hard','distribution']
 
     table  = comp_score_table(pose)
 
@@ -260,38 +260,30 @@ def gen_ground_truth(pose,anchor,pos_thres,neg_thres,num_neg,num_pos):
     for a in zip(anchor):
 
         query_dist = table[a]
-        #selected_idx = np.where(query_dist>0)[0] # exclude anchor idx (dist = 0)
-        #sort_query_dist_idx  =  np.argsort(query_dist)
-        all_pos_idx  = np.where(query_dist < pos_thres)[0]
-        sort_pos_idx = np.argsort(query_dist[all_pos_idx])
-        sort_all_pos_idx = all_pos_idx[sort_pos_idx]
+        selected_idx = np.where(query_dist>0)[0] # exclude anchor idx (dist = 0)
+        query_dist = query_dist[selected_idx]
         
-        dis = query_dist[sort_all_pos_idx]
-        all_pos_idx  = sort_all_pos_idx[1:] # remove the 0 eleemnt 
-     
-        dis_top = query_dist[all_pos_idx]
+        if mode == 'distribution':
+            all_pos_idx = selected_idx[np.where(query_dist<pos_thres)[0]]
+            tp = np.intersect1d(wout_query_idx,all_pos_idx).astype(np.uint32)
 
-        tp  = np.array([i for i in all_pos_idx if i not in anchor])
-        #tp = np.setxor1d(all_pos_idx,anchor)
-        if len(tp)>num_pos and num_pos>0:
-            tp = tp[:num_pos]
-            dis_top = query_dist[tp]
-            #pos_idx = np.random.randint(low=0,high = len(tp),size=num_pos)
-            #tp = tp[pos_idx]
+            if len(tp)>num_pos and num_pos>0:
+                pos_idx = np.random.randint(low=0,high = len(tp),size=num_pos)
+                tp = tp[pos_idx]
 
-        all_neg_idx = np.where(query_dist>neg_thres)[0]
-        neg_idx = np.random.randint(low=0,high = len(all_neg_idx),size=num_neg)
-        tn = all_neg_idx[neg_idx]
+            all_neg_idx = selected_idx[np.where(query_dist>neg_thres)[0]]
+            neg_idx = np.random.randint(low=0,high = len(all_neg_idx),size=num_neg)
+            tn = all_neg_idx[neg_idx]
 
             
             #neg_dists = np.argsort(query_dist[all_neg_idx])
             #dd = query_dist[all_neg_idx][neg_dists]
             #neg_idx = neg_dists[:num_neg]
 
-        #elif mode == 'hard':
-        #    tp = [selected_idx[np.argmin(query_dist)]]
-        #    all_neg_idx= np.where(query_dist>neg_thres)[0]
-        #    tn = [selected_idx[all_neg_idx[np.argmin(query_dist[all_neg_idx])]]]
+        elif mode == 'hard':
+            tp = [selected_idx[np.argmin(query_dist)]]
+            all_neg_idx= np.where(query_dist>neg_thres)[0]
+            tn = [selected_idx[all_neg_idx[np.argmin(query_dist[all_neg_idx])]]]
         
         positive.append(tp)
         negative.append(tn)
@@ -341,36 +333,8 @@ def relocal_metric(relevant_hat,true_relevant):
     return {'recall':recall, 'precision':precision}
 
 
-def retrieve_metrics(retrieved_map,true_relevant_map,top=1,**argv):
-  '''
-  In a relaxed setting, at each query it is only required to retrieve one loop. 
-  so: 
-    Among the retrieved loop in true loop 
-    recall  = tp/1
-  '''
-  assert top > 0
-  n_queries = retrieved_map.shape[0]
-  precision, recall = 0,0
-  for retrieved,relevant in zip(retrieved_map,true_relevant_map):
-    top_retrieved = retrieved[:top] # retrieved frames for a given query
-    
-    tp = 0 # Reset 
-    if any(([True  if cand in relevant else False for cand in top_retrieved])):
-        # It is only required to find one loop per anchor in a set of retrieved frames
-        tp = 1 
-    
-    recall += tp # recall = tp/1
-    precision += tp/top # retrieved loops/ # retrieved frames (top candidates) (precision w.r.t the query)
-  
-  recall /= n_queries  # average recall of all queries 
-  precision /= n_queries  # average precision of all queries 
 
-  return({'recall':recall,'precision':precision})
-
-
-
-
-def retrieve_metricsv2(relevant_hat,true_relevant,top=1,mode = 'hard'):
+def retrieve_metrics(relevant_hat,true_relevant,top=1,mode = 'hard'):
   '''
   In a relaxed setting, at each query it is only required to retrieve one loop. 
   so: 
@@ -397,6 +361,32 @@ def retrieve_metricsv2(relevant_hat,true_relevant,top=1,mode = 'hard'):
 
   return({'recall':recall,'precision':precision})
 
+
+def retrieve_metricsv2(retrieved_map,true_relevant_map,top=1):
+  '''
+  In a relaxed setting, at each query it is only required to retrieve one loop. 
+  so: 
+    Among the retrieved loop in true loop 
+    recall  = tp/1
+  '''
+  assert top > 0
+  n_queries = retrieved_map.shape[0]
+  precision, recall = 0,0
+  for retrieved,relevant in zip(retrieved_map,true_relevant_map):
+    top_retrieved = retrieved[:top] # retrieved frames for a given query
+    
+    tp = 0 # Reset 
+    if any(([True  if cand in relevant else False for cand in top_retrieved])):
+        # It is only required to find one loop per anchor in a set of retrieved frames
+        tp = 1 
+    
+    recall += tp # recall = tp/1
+    precision += tp/top # retrieved loops/ # retrieved frames (top candidates) (precision w.r.t the query)
+  
+  recall /= n_queries  # average recall of all queries 
+  precision /= n_queries  # average precision of all queries 
+
+  return({'recall':recall,'precision':precision})
 
 
 def comp_gt_table(pose,anchors,pos_thres):
