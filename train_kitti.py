@@ -10,7 +10,7 @@ args = [f'--memory RAM  --modality pcl  --session kitti --model VLAD_pointnet',
         f'--memory RAM  --modality bev  --session kitti --model GeM_resnet50 ',
 ]
 
-losses = ['DoubleTriplet','TripletLoss']
+losses = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss']
 for loss_func in losses:
         for arg in args:
                 modality = arg.split(' ')[4]
@@ -18,4 +18,4 @@ for loss_func in losses:
                 loss =  f'--loss {loss_func}'
 
                 func_arg = arg + ' ' + loss + ' ' + experiment
-                os.system('python train_knn.py ' + func_arg)
+                os.system('python3.8 train_knn.py ' + func_arg)

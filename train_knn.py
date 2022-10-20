@@ -89,7 +89,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'VLAD_pointnet',
+      default=  'SPoC_resnet50',
       help='Directory to get the trained model.'
   )
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='similarityLoss/bev/alpha0.5/hard',
+      default='similarityLoss/bev/alpha0.5/no_clip',
       help='Directory to get the trained model.'
   )
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
       '--memory',
       type=str,
       required=False,
-      default='Disk',
+      default='RAM',
       choices=['Disk','RAM'],
       help='Directory to get the trained model.'
   )
@@ -140,7 +140,7 @@ if __name__ == '__main__':
       '--modality',
       type=str,
       required=False,
-      default='pcl', # [pcl,bev, projection]
+      default='bev', # [pcl,bev, projection]
       help='Directory to get the trained model.'
   )
 
@@ -176,14 +176,14 @@ if __name__ == '__main__':
       '--debug',
       type=bool,
       required=False,
-      default=True,
+      default=False,
       help='Directory to get the trained model.'
   )
   parser.add_argument(
       '--loss',
       type=str,
       required=False,
-      default = 'LazyTriplet_plus',
+      default = 'LazyQuadrupletLoss',
       choices = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
@@ -251,6 +251,9 @@ if __name__ == '__main__':
   loss_param = SESSION['loss']['args']
   # Load the loss function
   loss = losses.__dict__[loss_type](**loss_param)
+  print("*"*30)
+  print(f'Loss: {loss}')
+  print("*"*30)
   # Get model parameters based on the modality
   modality = FLAGS.modality + '_param'
   # Load the model
@@ -258,7 +261,7 @@ if __name__ == '__main__':
   
 
   run_name = {  'dataset': str(SESSION['train_loader']['data']['sequence']),
-                'experiment':os.sep.join([FLAGS.loss,FLAGS.modality]), 
+                'experiment':os.path.join(FLAGS.experiment,FLAGS.loss), 
                 'model': FLAGS.model
                 }
 

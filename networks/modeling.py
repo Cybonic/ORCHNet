@@ -17,7 +17,7 @@ def _place_resnet(name, backbone_name, output_dim, output_stride, pretrained_bac
                                     replace_stride_with_dilation=replace_stride_with_dilation, 
                                     in_channels = in_ch)
     
-    inplanes = 2048
+    inplanes = 1024
     return_layers = {'layer4': 'out'}
     # Attention
     if name == 'AttVLAD':

@@ -462,7 +462,6 @@ def evaluationv2(pred,gt,type = 'hard',smooth=0.000001):
 
 
 
-
 def retrieval_metric(tp,fp,tn,fn):
 
     b = tp+tn+fp+fn  

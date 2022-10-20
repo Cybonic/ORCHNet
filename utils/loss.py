@@ -92,7 +92,11 @@ def get_distance_function(name):
         raise NameError
     return(loss)
 
-# Loss
+#==================================================================================================
+#
+#
+#==================================================================================================
+
 class LazyTripletLoss():
   def __init__(self, metric= 'L2', margin=0.2 , eps=1e-6,**argv):
 
@@ -134,6 +138,10 @@ class LazyTripletLoss():
 
     return(loss,{'p':ap,'n':an})
 
+#==================================================================================================
+#
+#
+#==================================================================================================
 
 class LazyQuadrupletLoss():
   def __init__(self, metric= 'L2', margin1 = 0.5 ,margin2 = 0.5 , eps=1e-6, **argv):
@@ -150,7 +158,6 @@ class LazyQuadrupletLoss():
   
   def __str__(self):
     return type(self).__name__ + ' ' + self.metric
-
 
   def __call__(self,descriptor = {},**args):
     
@@ -174,7 +181,7 @@ class LazyQuadrupletLoss():
     a_torch,n_torch  = totensorformat(a,n)
     neg_loss_array = self.loss(a_torch,n_torch,dim=2)
     # Hard negative
-    n_hard_idx = [torch.argmin(neg_loss_array).cpu().numpy().tolist()] # get the lowest negative distance (aka hard)
+    n_hard_idx = [torch.argmin(neg_loss_array).cpu().numpy().tolist()] # get the negative with smallest distance (aka hard)
     an = neg_loss_array[n_hard_idx]
     # Random negative 
     n_negs    = n_torch.shape[0]
@@ -184,7 +191,7 @@ class LazyQuadrupletLoss():
     dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
     dn_rand   = n_torch[n_rand_idx] # random negative descriptor
     an_prime= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
-    # Compute first tem
+    # Compute first term
     s1 = ap.squeeze() - an.squeeze() + self.margin1
     first_term = torch.max(self.eps,s1).clamp(min=0.0)
     # Compute second term
@@ -196,8 +203,13 @@ class LazyQuadrupletLoss():
     return(loss,{'p':ap,'n':an,'n_p':an_prime})
 
 
+#==================================================================================================
+#
+#
+#==================================================================================================
+
 class LazyTriplet_plus():
-    def __init__(self, metric= 'L2', margin=0.2, alpha=0.5, eps=1e-6, add_loss ='kl',**argv ):
+    def __init__(self, metric= 'L2', margin=0.2, alpha=0.5, eps=1e-6, add_loss ='None',**argv ):
         self.add_loss = add_loss
        
         #self.device= metric
@@ -205,6 +217,7 @@ class LazyTriplet_plus():
         self.metric = metric
         self.eps    = torch.tensor(eps)
         self.alpha  = alpha
+        self.reduction = 'mean'
 
         self.loss = L2_loss 
     
@@ -224,36 +237,23 @@ class LazyTriplet_plus():
             n = n.unsqueeze(dim=0)
       
         # Create query with the same size of the positive
-        a_torch,p_torch = totensorformat(a,p)
-        dap = self.loss(a_torch, p_torch,dim=2)
-        #dap = torch.__dict__[self.reduction](pos_loss_array)
+        n_pose = n_pose.transpose(1,0)
+        pa_torch,pn_torch  = totensorformat(a_pose,n_pose)
+        pan = L2_loss(pa_torch,pn_torch,dim=2)
+        pan = torch.__dict__[self.reduction](pan)
 
         a_torch,n_torch  = totensorformat(a,n)
-        dan = self.loss(a_torch,n_torch,dim=2)
-        #dan = torch.__dict__[self.reduction](neg_loss_array)
-        an_idx = torch.argmin(dan) # get the lowest n egative distance (aka hard)
-        dan = dan[an_idx]
+        neg_loss_array = self.loss(a_torch,n_torch,dim=2)
+        fan = torch.__dict__[self.reduction](neg_loss_array)
 
-        n_pose = n_pose.transpose(1,0)
-        pa_torch,pn_torch  = totensorformat(a_pose,n_pose[an_idx])
-        pan = self.loss(pa_torch,pn_torch,dim=2)
-        #pan = torch.__dict__[self.reduction](neg_dis)
+        delta_an = torch.abs(pan - fan)
 
-        pa_torch,pp_torch  = totensorformat(a_pose,p_pose)
-        pap = self.loss(pa_torch,pp_torch,dim=2)
-        #pap = torch.__dict__[self.reduction](pos_dis)
+        a_torch,p_torch = totensorformat(a,p)
+        fap = self.loss(a_torch, p_torch,dim=2)
 
-        #an = torch.__dict__[self.reduction](neg_loss_array)
-        delta_an = torch.abs(pan - dan)
-        delta_ap = torch.abs(pap - dap)
-        kl_ap = logit_kl_divergence_loss(a_torch, p_torch)
-
-        l =  (self.alpha*(delta_an) + (1-self.alpha)*(delta_ap))
-
-        if self.add_loss == 'kl': 
-            l += kl_ap
+        l =  self.alpha*(delta_an) +  fap # (1-self.alpha)*(delta_ap))
 
         value = torch.max(self.eps,l)
         loss = value.clamp(min=0.0)
 
-        return(loss,{'p':delta_ap,'n':delta_an})
+        return(loss,{'p':fap,'n':delta_an})
