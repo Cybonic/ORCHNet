@@ -66,7 +66,8 @@ class ModelWrapper(nn.Module):
             descriptor = {'a':dq,'p':dp,'n':dn}
 
             loss_value,info = self.loss(descriptor = descriptor, poses = pose)
-            #loss_value = loss_value
+            # devide by the number of batch iteration; as direct implication in the grads
+            loss_value /= mini_batch_total_iteration 
             loss_value.backward() # Backpropagate gradients and free graph
             batch_loss += loss_value.detach().cpu().item()
 
