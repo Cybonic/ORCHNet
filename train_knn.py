@@ -89,7 +89,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'SPoC_resnet50',
+      default=  'SPoC_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='similarityLoss/bev/alpha0.5/no_clip',
+      default='GRAD_TEST/10',
       help='Directory to get the trained model.'
   )
 
@@ -132,7 +132,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=100,
+      default=1000,
       help='Directory to get the trained model.'
   )
 
@@ -140,7 +140,7 @@ if __name__ == '__main__':
       '--modality',
       type=str,
       required=False,
-      default='bev', # [pcl,bev, projection]
+      default='pcl', # [pcl,bev, projection]
       help='Directory to get the trained model.'
   )
 
@@ -183,8 +183,16 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'LazyQuadrupletLoss',
-      choices = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
+      default = 'LazyTripletplus_v5',
+      #choices = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
+      help='Directory to get the trained model.'
+  )
+  parser.add_argument(
+      '--loss_alpha',
+      type=float,
+      required=False,
+      default = 0.5,
+      #choices = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
 
@@ -216,6 +224,7 @@ if __name__ == '__main__':
   SESSION['model']['type'] =  FLAGS.model
   SESSION['trainer']['epochs'] =  FLAGS.epoch
   SESSION['loss']['type'] = FLAGS.loss
+  SESSION['loss']['args']['alpha'] = FLAGS.loss_alpha
 
   print("----------")
   print("Root: ", SESSION['root'])
@@ -249,6 +258,10 @@ if __name__ == '__main__':
   # Get Loss parameters
   loss_type  = SESSION['loss']['type']
   loss_param = SESSION['loss']['args']
+
+  if FLAGS.loss.startswith('LazyTripletplus'):
+    loss_type = FLAGS.loss.split('_')[0]
+    loss_param['version'] = FLAGS.loss.split('_')[-1]
   # Load the loss function
   loss = losses.__dict__[loss_type](**loss_param)
   print("*"*30)
@@ -261,7 +274,7 @@ if __name__ == '__main__':
   
 
   run_name = {  'dataset': str(SESSION['train_loader']['data']['sequence']),
-                'experiment':os.path.join(FLAGS.experiment,FLAGS.loss), 
+                'experiment':os.path.join(FLAGS.experiment,str(loss)), 
                 'model': FLAGS.model
                 }
 
