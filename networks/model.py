@@ -22,11 +22,23 @@ class ModelWrapper(nn.Module):
         self.loss = loss
         self.minibatch_size=minibatch_size
         self.device = device
-
+        self.batch_counter = 0 
         self.model = modeling.__dict__[type](output_dim   = output_dim, 
                                             output_stride = 4, 
                                             pretrained_backbone = pretrained_backbone,
                                             **args )
+
+
+    def mean_grad(self):
+        if self.batch_counter == 0:
+            self.batch_counter  = 1 
+
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                
+                param.grad /= self.batch_counter
+        
+        self.batch_counter = 0 
 
 
     def forward(self,pcl,):
@@ -41,6 +53,8 @@ class ModelWrapper(nn.Module):
         pose = {'a':pose_anchor,'p':pose_positive,'n':pose_negative}
         
         batch_loss = 0
+
+        self.batch_counter +=1 # 
         #self.minibatch_size = 20
         mini_batch_total_iteration = math.ceil(num_neg/self.minibatch_size)
         for i in range(0,mini_batch_total_iteration): # This works because neg < pos
@@ -68,6 +82,7 @@ class ModelWrapper(nn.Module):
             loss_value,info = self.loss(descriptor = descriptor, poses = pose)
             # devide by the number of batch iteration; as direct implication in the grads
             loss_value /= mini_batch_total_iteration 
+            
             loss_value.backward() # Backpropagate gradients and free graph
             batch_loss += loss_value.detach().cpu().item()
 
