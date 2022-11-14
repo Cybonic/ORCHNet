@@ -92,9 +92,6 @@ class Trainer(BaseTrainer):
         self.optimizer.zero_grad()
         for batch_idx in tbar:
             
-                #self.batch_size +=1 
-
-            #for j in batch_size: 
             input = next(dataloader)
             input_tonsor = self._send_to_device(input)
             #pcl_pose = self._send_to_device(idx)            
