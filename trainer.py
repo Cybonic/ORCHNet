@@ -42,6 +42,7 @@ class Trainer(BaseTrainer):
 
         self.train_metrics = None#StreamSegMetrics(len(labels))
         self.val_metrics = None #StreamSegMetrics(len(labels))
+        self.batch_size = 10
 
     def _reset_metrics(self):
         # Reset all evaluation metrics 
@@ -87,23 +88,36 @@ class Trainer(BaseTrainer):
         epoch_an = []
         epoch_ap = []
         epoch_loss = []
-        
+        self.batch_size = 10
+        self.optimizer.zero_grad()
         for batch_idx in tbar:
             
+                #self.batch_size +=1 
+
+            #for j in batch_size: 
             input = next(dataloader)
             input_tonsor = self._send_to_device(input)
             #pcl_pose = self._send_to_device(idx)            
             
-            self.optimizer.zero_grad()
             batch_loss = self.model(input_tonsor)
-            self.optimizer.step()
             
             epoch_an.append(batch_loss['n'].detach().cpu().item())
             epoch_ap.append(batch_loss['p'].detach().cpu().item())
             epoch_loss.append(batch_loss['l'].detach().cpu().item())
 
             tbar.set_description('T ({}) | Loss {:.10f}'.format(epoch,np.mean(epoch_loss)))
-        
+            tbar.update()
+
+            if batch_idx % self.batch_size == 0:
+                self.model.mean_grad()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+            
+            if epoch%50==0:
+                self.batch_size += 5
+
+           
+
         epoch_perfm ={'loss':np.mean(epoch_loss),'ap':np.mean(epoch_ap),'an':np.mean(epoch_an)}
         self._write_scalars_tb('train',epoch_perfm,epoch)
 
