@@ -267,7 +267,7 @@ def gen_ground_truth(pose,anchor,pos_thres,neg_thres,num_neg,num_pos):
         sort_all_pos_idx = all_pos_idx[sort_pos_idx]
         
         dis = query_dist[sort_all_pos_idx]
-        all_pos_idx  = sort_all_pos_idx[1:] # remove the 0 eleemnt 
+        all_pos_idx  = sort_all_pos_idx[1:] # remove the 0 element 
      
         dis_top = query_dist[all_pos_idx]
 
