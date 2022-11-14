@@ -212,12 +212,12 @@ class BirdsEyeViewScan:
                           [ math.sin(theta),  math.cos(theta),    0],
                           [0,                             0,      1]])
 
-    rot_pointcloud = rot_matrix.dot(pointcloud.T).T
+    pointcloud = rot_matrix.dot(pointcloud.T).T
     # add some noise
-    noise = np.random.normal(0,self.noise, (pointcloud.shape))
-    noisy_pointcloud = rot_pointcloud + noise
+    # noise = np.random.normal(0,self.noise, (pointcloud.shape))
+    # pointcloud = pointcloud + noise
 
-    self.points = noisy_pointcloud
+    self.points = pointcloud
 
   def get_data(self,**arg):
     #self.set_normalization()
