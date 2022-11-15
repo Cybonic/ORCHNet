@@ -137,7 +137,7 @@ class KittiDataset():
                         dataset,
                         sequence,
                         modality,
-                        max_points=50000, 
+                        max_points = 50000, 
                         pos_range = 10, # max positive range
                         neg_range = 50, # min negative range
                         num_neg   = 10, # num of negative samples
@@ -423,7 +423,7 @@ class KITTI():
             self.valloader   = DataLoader(self.val_loader,
                                     batch_size = val_cfg['batch_size'],
                                     num_workers= 0,
-                                    pin_memory=True,
+                                    pin_memory=False,
                                     )
 
         if 'train_loader'  in kwargs:
@@ -440,7 +440,7 @@ class KITTI():
                                         batch_size = 1, #train_cfg['batch_size'],
                                         shuffle    = train_cfg['shuffle'],
                                         num_workers= 0,
-                                        pin_memory=True,
+                                        pin_memory=False,
                                         drop_last=True,
                                         )
         
