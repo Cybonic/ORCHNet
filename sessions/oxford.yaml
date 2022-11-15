@@ -1,0 +1,124 @@
+
+
+experim_name: 'default'
+################################################################################
+# training parameters
+################################################################################
+pretrained_root: 'checkpoints'
+n_gpu: 1
+root: '/home/tiago/Dropbox/research/datasets/pointnetvlad'
+root_ws: "C:\\Users\\Tiago\\TB\\datasets\\pointnetvlad"
+
+retrieval:
+  top_cand: [1,5]
+  range_thres: 6
+
+
+train_loader:
+  data:
+    dataset: 'oxford'
+    sequence: '2014-05-19-13-20-57' # ['00','02','05','06']
+    submap: 'pointcloud_20m_10overlap'
+    modality: 'bev'
+    pos_range: 10
+    neg_range: 50
+    #ground_truth: 'hard' # Process of generating ground-truth positives and negatives for training;
+    # hard -> only the most nearest positive and negative is used;
+    # distribution -> a set of positives and negatives are selected; negatives are selected randomly from all the map
+  fraction: 0.3 
+  batch_size: 1       # batch size
+  shuffle: True
+  
+  
+  #rotation: [180,-45,-45]
+  
+val_loader:
+  data:
+    dataset: 'oxford'
+    pos_seq:    ['2014-05-19-13-20-57'] # ['00','02','05','06']
+    anchor_seq: ['2014-06-26-09-31-18']
+    modality: 'bev' # ['range',projection,bev]'intensity','density','height','bev']
+    pos_range: 25
+  batch_size: 10 #50         # batch size
+  workers:  0            # number of threads to get data
+  shuffle: False
+  
+  #rotation: [180,-45,-45]
+
+model:
+  type: 'AttVLAD_resnet50'
+  minibatch_size: 50
+  pretrained_backbone: True
+  output_dim: 256
+  use_tnet: False
+  #in_channels: 1
+
+bev_param:
+  in_channels: 3
+  max_samples: 256
+  cluster_size: 64
+
+height_param:
+  in_channels: 1
+  max_samples: 128
+  cluster_size: 64
+
+rp_param:
+  in_channels: 5
+  max_samples: 64
+  cluster_size: 64
+
+range_param:
+  in_channels: 1
+  max_samples: 128
+  cluster_size: 64
+
+pcl_param:
+  in_channels: 1
+  max_samples: 10000
+  cluster_size: 64
+
+loss:
+  type: 'LazyTriplet_plus'
+  args:
+    margin1: 0.5
+    margin2: 0.5
+    metric: 'kl_divergence' # [L2,Hinge,cosine,kl_divergence]
+    version: 'v1'
+    #reduction: 'mean'
+    #mode: 'hard'
+
+trainer:
+  iter_per_epoch: 1
+  epochs: 1000
+  report_val: 1        # every x epochs, report validation set
+  save_period: 1
+  log_dir: "saved/"
+  save_dir: "checkpoints/"
+  monitor: "max recall" # [off, max mIoU]
+  val_per_epochs: 1
+  eval_metric: 'L2_loss'
+  results_dir: "/media/tiago/BIG/Orchards/temp/"
+
+optimizer:
+  type: "AdamW" #[RMSprop,Adam,SGD]
+  args:
+    lr: 0.0001
+    weight_decay: 0.05
+  lr_scheduler: "ReduceLROnPlateau"
+
+StepLR:
+  step_size: 100 
+  gamma: 0.1
+
+CosineAnnealingWarmRestarts:
+  T_0: 5
+  T_mult: 2
+  eta_min: 0.00001 # Min learning rate
+
+ReduceLROnPlateau:
+  mode: 'min' #['min','max'] (str)
+  factor: 0.01
+  patience: 10 # Number of epochs with no improvement after which learning rate will be reduced. 
+  min_lr: 0.000001
+
