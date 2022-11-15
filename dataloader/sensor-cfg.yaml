@@ -1,3 +1,28 @@
+oxford:
+  means: []
+  std:   []
+  sensor: "HDL64E"
+  roi:
+      xmin: -30
+      xmax:  30
+      ymin: -30
+      ymax:  30
+      zmin: -2.73
+      zmax: 10
+  
+  RP: # HDL-32E  
+    W: 512
+    H: 64
+    max_depth: 30
+    max_rem: 1
+
+  BEV:
+    W: 254
+    H: 254
+
+
+
+
 '00':
   means: []
   std:   []
@@ -104,6 +129,8 @@
   BEV:
     W: 254
     H: 254
+
+
 
 rerecord_sparce:
   means: []

@@ -112,8 +112,7 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
     #query = {'pcl':query_pcl,'pose':query_pose}
     random.shuffle(dict_value["positives"])
     
-    
-
+    # ==========================================================================
     # Get Positive files
     pos_files=[]
     pos_poses=[]
@@ -123,7 +122,9 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
         pos_poses.append(QUERY_DICT[indice]["pose"])
     
     positives  = load_pc_files(pos_files)
-   
+
+    # ==========================================================================
+    # Get Negatives
     neg_files=[]
     neg_indices=[]
     neg_poses = []
@@ -152,7 +153,10 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
                 j+=1
 
     negatives=load_pc_files(neg_files)
-    
+
+    # ==========================================================================
+    # Get HARD Positives
+
     if(other_neg==False):
         return [query,positives,negatives]
 	#For Quadruplet Loss
@@ -174,7 +178,8 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
         neg2= load_pc_files(os.path.join(root,QUERY_DICT[indice]["query"]))
         neg2_poses = QUERY_DICT[indice]["pose"]
 
-        return [query,positives,negatives,neg2],[query_pose,pos_poses,neg_poses,neg2_poses]
+    # Original implementation does not return Pose
+    return {'pcl':[query,positives,negatives,neg2],'pose':[query_pose,pos_poses,neg_poses,neg2_poses]}
 
 
 
@@ -195,7 +200,7 @@ def load_picklet(root,filename):
 class PointNetDataset():
     def __init__(self,
                     root,
-                    pickle_file,
+                    pickle_file, # choose between train and test files
                     num_neg   = 10, # num of negative samples
                     num_pos   =  1, # num of positive samples
                     modality  = 'range',
@@ -214,33 +219,38 @@ class PointNetDataset():
         self.num_pos = num_pos
         #self.ground_truth_mode = argv['ground_truth']
 
+        # Stuff related to the data organization
         self.base_path = os.path.join(root,'benchmark_datasets')
-        self.training_queries = load_picklet(root,pickle_file)
+        self.queries = load_picklet(root,pickle_file)
       
-        self.num_samples  = len(self.training_queries.keys())
+        self.num_samples  = len(self.queries.keys())
 
+        # Stuff related to sensor parameters for obtaining final representation
         cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
         sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
         
-        self.num_samples = len(self.plc_files)
-        dataset_param = sensor_cfg[seq]
+
+        dataset_param = sensor_cfg['oxford']
         sensor =  sensor_cfg[dataset_param['sensor']]
 
         if modality in ['range','projection','remissions']:
             proj_pram = dataset_param['RP']
-            self.proj = SphericalRangeProjScan(**sensor,**proj_pram,roi = dataset_param['roi'],parser = kitti_velo_parser(),**argv)
+            self.proj = SphericalRangeProjScan(**sensor,**proj_pram,roi = dataset_param['roi'],parser = None,**argv)
         elif modality in ['intensity','density','height','bev']:
             proj_pram = dataset_param['BEV']
-            self.proj = BirdsEyeViewScan(**proj_pram, roi = dataset_param['roi'], parser = kitti_velo_parser(),image_proj=image_proj,**argv)
+            self.proj = BirdsEyeViewScan(**proj_pram, roi = dataset_param['roi'], parser = None,image_proj=image_proj,**argv)
     
     def __len__(self):
         return(self.num_samples)
 
     def _get_proj_(self,idx,modality=None,yaw=None):
         # Get point cloud file
-        query = self.training_queries[idx]
-        pcl, pose = get_query_tuple(self.base_path,query,self.num_pos,self.num_neg, self.training_queries, hard_neg=[], other_neg=True)
-        return pcl, pose
+        query = self.queries[idx]
+        # The function returns a dict. with the following data 
+        # {'pcl':[],'pose':[]}
+        # both quies have the same data structure [query,pos,neg,neg2]    
+        tuple = get_query_tuple(self.base_path,query,self.num_pos,self.num_neg, self.queries, hard_neg=[], other_neg=True)
+        return tuple['pcl'], tuple['pose']
 
     def _get_pose(self):
         return np.array(self.poses)
