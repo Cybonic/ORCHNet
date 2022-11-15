@@ -88,7 +88,7 @@ class Trainer(BaseTrainer):
         epoch_an = []
         epoch_ap = []
         epoch_loss = []
-        self.batch_size = 10
+        self.batch_size = 1
         self.optimizer.zero_grad()
         for batch_idx in tbar:
             
@@ -110,8 +110,8 @@ class Trainer(BaseTrainer):
                 self.optimizer.step()
                 self.optimizer.zero_grad()
             
-            if epoch%50==0:
-                self.batch_size += 5
+        if epoch%50==0:
+            self.batch_size += 0
 
            
 
