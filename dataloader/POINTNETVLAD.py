@@ -116,6 +116,10 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
     # Get Positive files
     pos_files=[]
     pos_poses=[]
+
+    if num_pos > len(dict_value["positives"]):
+        num_pos = len(dict_value["positives"])
+
     for i in range(num_pos):
         indice = dict_value["positives"][i]
         pos_files.append(os.path.join(root,QUERY_DICT[indice]["query"]))
@@ -128,6 +132,10 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
     neg_files=[]
     neg_indices=[]
     neg_poses = []
+
+    if num_neg > len(dict_value["negatives"]):
+        num_neg = len(dict_value["negatives"])
+
     if(len(hard_neg)==0):
         random.shuffle(dict_value["negatives"])
         for i in range(num_neg):
@@ -201,11 +209,12 @@ class PointNetDataset():
     def __init__(self,
                     root,
                     pickle_file, # choose between train and test files
-                    num_neg   = 10, # num of negative samples
-                    num_pos   =  1, # num of positive samples
-                    modality  = 'range',
-                    image_proj=True,
-                    aug = False,
+                    num_neg, # num of negative samples
+                    num_pos, # num of positive samples
+                    modality,
+                    image_proj,
+                    aug,
+                    max_points,
                     **argv):
         
         self.plc_files  = []
@@ -229,7 +238,6 @@ class PointNetDataset():
         cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
         sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
         
-
         dataset_param = sensor_cfg['oxford']
         sensor =  sensor_cfg[dataset_param['sensor']]
 
@@ -239,7 +247,9 @@ class PointNetDataset():
         elif modality in ['intensity','density','height','bev']:
             proj_pram = dataset_param['BEV']
             self.proj = BirdsEyeViewScan(**proj_pram, roi = dataset_param['roi'], parser = None,image_proj=image_proj,**argv)
-    
+        else:
+            self.proj = LaserScan(parser = None, max_points = max_points, **argv)
+
     def __len__(self):
         return(self.num_samples)
 
@@ -248,33 +258,40 @@ class PointNetDataset():
         query = self.queries[idx]
         # The function returns a dict. with the following data 
         # {'pcl':[],'pose':[]}
-        # both quies have the same data structure [query,pos,neg,neg2]    
+        # both queries have the same data structure [query,pos,neg,neg2]    
         tuple = get_query_tuple(self.base_path,query,self.num_pos,self.num_neg, self.queries, hard_neg=[], other_neg=True)
-        return tuple['pcl'], tuple['pose']
+        
+        tuple['proj'] = []
+        for pcl in tuple['pcl']:
+            self.proj.load_pcl(pcl[0])
+            data = self.proj.get_data(modality = self.modality, aug = self.aug)
+            tuple['proj'].append(data)
+        
+        return tuple['proj'], tuple['pose']
 
-    def _get_pose(self):
-        return np.array(self.poses)
-    
-    def _get_anchor(self):
-        return np.array(self.anchors)
 
 
-class KITTIEval(PointNetDataset):
-    def __init__(self,root, dataset, sequence,   # Projection param and sensor
-                modality = 'range' , 
+class PointNetEval(PointNetDataset):
+    def __init__(self,
+                root,
+                pickle_file, # choose between train and test files
+                num_neg   = 10, # num of negative samples
+                num_pos   = 1, # num of positive samples
+                modality  = 'range',
+                image_proj= True,
+                aug = False,
                 num_subsamples = -1,
                 mode = 'Disk',
                 max_points = 10000, 
-                image_proj=True,
-                **arg
+                **argv
                 ):
-        
-        super(KITTIEval,self).__init__(root, dataset, sequence, modality=modality,max_points=max_points,**arg)
+
+        super(PointNetEval,self).__init__(root, pickle_file, num_neg, num_pos, modality, image_proj, aug, max_points,**argv)
         self.modality = modality
         self.mode     = mode
         self.preprocessing = PREPROCESSING
 
-        self.num_samples = self.num_samples
+        #self.num_samples = self.num_samples
         # generate map indicies:ie inidices that do not belong to the anchors/queries
         self.idx_universe = np.arange(self.num_samples)
 
