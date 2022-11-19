@@ -116,7 +116,7 @@ class LazyTripletLoss():
     a,p,n = descriptor['a'],descriptor['p'],descriptor['n']
 
     assert a.shape[0] == 1
-    assert p.shape[0] == 1
+    assert p.shape[0] == 1, 'positives samples must be 1'
 
     if len(a.shape) < len(n.shape): 
         a = a.unsqueeze(dim=0)
@@ -164,7 +164,7 @@ class LazyQuadrupletLoss():
     #a_pose,p_pose,n_pose = pose[0],pose[1],pose[2]
     a,p,n = descriptor['a'],descriptor['p'],descriptor['n']
     assert a.shape[0] == 1
-    assert p.shape[0] == 1
+    assert p.shape[0] == 1, 'positives samples must be 1'
     assert n.shape[0] >= 2,'negative samples must be at least 2' 
 
     if len(a.shape) < len(n.shape): 
@@ -190,17 +190,17 @@ class LazyQuadrupletLoss():
     n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
     dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
     dn_rand   = n_torch[n_rand_idx] # random negative descriptor
-    an_prime= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
+    nn_prime= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
     # Compute first term
     s1 = ap.squeeze() - an.squeeze() + self.margin1
     first_term = torch.max(self.eps,s1).clamp(min=0.0)
     # Compute second term
-    s2 = ap.squeeze() - an_prime.squeeze() + self.margin2
+    s2 = ap.squeeze() - nn_prime.squeeze() + self.margin2
     second_term = torch.max(self.eps,s2).clamp(min=0.0)
     # compute loss
     loss = first_term + second_term
 
-    return(loss,{'p':ap,'n':an,'n_p':an_prime})
+    return(loss,{'p':ap,'n':an,'n_p':nn_prime})
 
 
 #==================================================================================================
@@ -255,8 +255,12 @@ class LazyTripletplus():
         neg_loss_array = self.loss(a_torch, n_torch,dim=2)
         fan = torch.__dict__[self.reduction](neg_loss_array)
 
+        # 1st version
         delta_ap = torch.abs(pap - fap)
         delta_an = torch.abs(pan - fan)
+        # 2nd version
+        delta_p = torch.abs(pan-pap)
+        #delta_an = torch.abs(pan - fan)
         
         if self.version == 'v1':
             l = fap
@@ -275,7 +279,9 @@ class LazyTripletplus():
         
         # Added after first results
         elif self.version == 'v8':
-            l =  self.alpha*(delta_ap) + (1-self.alpha)*fap 
+            l =  self.alpha*(delta_ap) + (1-self.alpha)*fap
+        elif self.version == 'v9':
+             l =   fap - fan + delta_p  
         #elif self.version == 'v9':
         #    l =  self.alpha*(delta_an) + (1-self.alpha)*fap
 
