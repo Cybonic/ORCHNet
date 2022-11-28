@@ -202,6 +202,98 @@ class LazyQuadrupletLoss():
 
     return(loss,{'p':ap,'n':an,'n_p':nn_prime})
 
+#==================================================================================================
+#
+# MetricLazyQuadrupletLoss
+#
+#==================================================================================================
+
+class MetricLazyQuadrupletLoss():
+  def __init__(self, metric= 'L2', margin1 = 0.5 ,margin2 = 0.5 , alpha = 0.01, version = 'v2', eps=1e-8, **argv):
+    
+    #assert isinstance(margin,list) 
+    #assert len(margin) == 2,'margin has to have 2 elements'
+    self.reduction = 'mean'
+    self.margin1 =  margin1 
+    self.margin2 = margin2
+    self.metric = metric
+    self.eps = torch.tensor(eps)
+    self.alpha = alpha
+    self.version = version
+    # Loss types
+    self.loss = get_distance_function(metric)
+  
+  def __str__(self):
+    return type(self).__name__ + ' ' + self.metric
+
+  def __call__(self,descriptor,poses):
+    
+    # parse pose
+    a_pose,p_pose,n_pose = poses['a'],poses['p'],poses['n']
+    # parse descriptors
+    a,p,n = descriptor['a'],descriptor['p'],descriptor['n']
+
+    assert a.shape[0] == 1
+    assert p.shape[0] == 1,'positives samples must be 1'
+    assert n.shape[0] >= 2,'negative samples must be at least 2' 
+
+    if len(a.shape) < len(n.shape): 
+        a = a.unsqueeze(dim=0)
+    if len(p.shape) < len(n.shape): 
+        p = p.unsqueeze(dim=0)
+    if len(n.shape) < len(a.shape):
+        n = n.unsqueeze(dim=0)
+
+    # Descriptors
+    #----------------------------------------
+    # Anchor - positive
+    a_torch,p_torch = totensorformat(a,p)
+    ap = self.loss(a_torch, p_torch,dim=2)
+    # Anchor - negative
+    a_torch,n_torch  = totensorformat(a,n)
+    neg_loss_array = self.loss(a_torch,n_torch,dim=2)
+    # Hard negative
+    n_hard_idx = [torch.argmin(neg_loss_array).cpu().numpy().tolist()] # get the negative with smallest distance (aka hard)
+    an = neg_loss_array[n_hard_idx]
+    # Random negative 
+    n_negs    = n_torch.shape[0]
+    idx_arr   = np.arange(n_negs)
+    elig_neg  = np.setxor1d(idx_arr,n_hard_idx) # Remove from the array the hard negative index
+    n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
+    dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
+    dn_rand   = n_torch[n_rand_idx] # random negative descriptor
+    nn_prime= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
+
+    # Poses
+    #----------------------------------------
+    pa_torch,pp_torch  = totensorformat(a_pose,p_pose)
+    pap = L2_loss(pa_torch,pp_torch,dim=2)
+    pap = torch.__dict__[self.reduction](pap)
+
+    pa_torch,pn_torch  = totensorformat(a_pose,n_pose)
+    pan = L2_loss(pa_torch,pn_torch,dim=2)
+    pan = torch.__dict__[self.reduction](pan)
+
+    # Compute Loss terms
+    #----------------------------------------
+    # Compute first term
+    s1 = ap.squeeze() - an.squeeze() + self.margin1
+    first_term = torch.max(self.eps,s1).clamp(min=0.0)
+    # Compute second term
+    s2 = ap.squeeze() - nn_prime.squeeze() + self.margin2
+    second_term = torch.max(self.eps,s2).clamp(min=0.0)
+    
+    if self.version == 'v1':
+        third_term =  pap
+    elif self.version == 'v2':
+        third_term= torch.max(self.eps,(ap/pap)-1) 
+
+    # Compute metric term
+    
+    # compute loss
+    loss = first_term + second_term + self.alpha*third_term
+
+    return(loss,{'p':ap,'n':an,'n_p':nn_prime,'metric':third_term})
 
 #==================================================================================================
 #
@@ -282,6 +374,8 @@ class LazyTripletplus():
             l =  self.alpha*(delta_ap) + (1-self.alpha)*fap
         elif self.version == 'v9':
              l =   fap - fan + delta_p  
+        elif self.version == 'v10':
+            l = F.mse_loss(fan,pan) + F.mse_loss(fap,pap)
         #elif self.version == 'v9':
         #    l =  self.alpha*(delta_an) + (1-self.alpha)*fap
 
