@@ -84,11 +84,11 @@ class Trainer(BaseTrainer):
         tbar = tqdm(range(len(self.train_loader)), ncols=80)
 
         self._reset_metrics()
-        epoch_loss = []
+        epoch_loss_list = {}
         epoch_an = []
         epoch_ap = []
-        epoch_loss = []
-        self.batch_size = 1
+        epoch_loss = 0
+        self.batch_size = 10
         self.optimizer.zero_grad()
         for batch_idx in tbar:
             
@@ -96,26 +96,37 @@ class Trainer(BaseTrainer):
             input_tonsor = self._send_to_device(input)
             #pcl_pose = self._send_to_device(idx)            
             
-            batch_loss = self.model(input_tonsor)
+            batch_data , info= self.model(input_tonsor)
             
-            epoch_an.append(batch_loss['n'].detach().cpu().item())
-            epoch_ap.append(batch_loss['p'].detach().cpu().item())
-            epoch_loss.append(batch_loss['l'].detach().cpu().item())
+            batch_data /= self.batch_size
+            batch_data.backward()
+            for key,value in info.items():
+                if key in epoch_loss_list:
+                    epoch_loss_list[key].append(value.detach().cpu().item())
+                else:
+                    epoch_loss_list[key] = [value.detach().cpu().item()]
+            #epoch_an.append(batch_data['n'].detach().cpu().item())
+            #epoch_ap.append(batch_data['p'].detach().cpu().item())
+            # Accumulate error
+            epoch_loss += batch_data.detach().cpu().item()
 
-            tbar.set_description('T ({}) | Loss {:.10f}'.format(epoch,np.mean(epoch_loss)))
+            tbar.set_description('T ({}) | Loss {:.10f}'.format(epoch,epoch_loss/(batch_idx+1)))
             tbar.update()
 
             if batch_idx % self.batch_size == 0:
-                self.model.mean_grad()
+                #self.model.mean_grad()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
             
-        if epoch%50==0:
-            self.batch_size += 0
+        #if epoch%50==0:
+        #    self.batch_size += 50
 
-           
-
-        epoch_perfm ={'loss':np.mean(epoch_loss),'ap':np.mean(epoch_ap),'an':np.mean(epoch_an)}
+        epoch_perfm = {}
+        for key,value in epoch_loss_list.items():
+            epoch_perfm[key] = np.mean(value)
+        
+        epoch_perfm['loss'] = epoch_loss/batch_idx
+        #epoch_perfm ={'loss':,'ap':np.mean(epoch_ap),'an':np.mean(epoch_an)}
         self._write_scalars_tb('train',epoch_perfm,epoch)
 
         return epoch_perfm

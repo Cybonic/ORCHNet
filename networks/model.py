@@ -54,7 +54,7 @@ class ModelWrapper(nn.Module):
         
         batch_loss = 0
 
-        self.batch_counter +=1 # 
+        #self.batch_counter +=1 # 
         #self.minibatch_size = 20
         mini_batch_total_iteration = math.ceil(num_neg/self.minibatch_size)
         for i in range(0,mini_batch_total_iteration): # This works because neg < pos
@@ -83,10 +83,10 @@ class ModelWrapper(nn.Module):
             # devide by the number of batch iteration; as direct implication in the grads
             loss_value /= mini_batch_total_iteration 
             
-            loss_value.backward() # Backpropagate gradients and free graph
-            batch_loss += loss_value.detach().cpu().item()
+            #loss_value.backward() # Backpropagate gradients and free graph
+            batch_loss += loss_value
 
-        return({'l':loss_value,**info})
+        return(batch_loss,info)
     
     def get_backbone_params(self):
         return self.model.get_backbone_params()
