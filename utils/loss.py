@@ -216,7 +216,7 @@ class LazyQuadrupletLoss():
 #==================================================================================================
 
 class MetricLazyQuadrupletLoss():
-  def __init__(self, metric= 'L2', margin1 = 0.5 ,margin2 = 0.5 , alpha = 0.1, version = 'v2', eps=1e-8, **argv):
+  def __init__(self, metric= 'L2', margin1 = 0.5 ,margin2 = 0.5 , alpha = 1, version = 'v2', eps=1e-8, **argv):
 
     #assert isinstance(margin,list) 
     #assert len(margin) == 2,'margin has to have 2 elements'
@@ -271,7 +271,11 @@ class MetricLazyQuadrupletLoss():
     n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
     dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
     dn_rand   = n_torch[n_rand_idx] # random negative descriptor
-    nn_prime= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
+    #nn_prime= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
+
+    nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
+    n_random_hard_idx = [torch.argmin(nn_prime).cpu().numpy().tolist()] # get the negative with smallest distance w.r.t NR (aka NRH)
+    nr2h = nn_prime[n_random_hard_idx] # get the smallest distance between NR and NRH
 
     # Poses
     #----------------------------------------
@@ -289,7 +293,7 @@ class MetricLazyQuadrupletLoss():
     s1 = ap.squeeze() - an.squeeze() + self.margin1
     first_term = torch.max(self.eps,s1).clamp(min=0.0)
     # Compute second term
-    s2 = ap.squeeze() - nn_prime.squeeze() + self.margin2
+    s2 = ap.squeeze() - nr2h.squeeze() + self.margin2
     second_term = torch.max(self.eps,s2).clamp(min=0.0)
     
     if self.version == 'v1':
@@ -300,15 +304,15 @@ class MetricLazyQuadrupletLoss():
         raise ValueError
 
     # Compute metric term
-    lazyql_loss,info = self.LQL(descriptor) 
+    #lazyql_loss,info = self.LQL(descriptor) 
     # compute loss
-    lossv2 = lazyql_loss +  self.alpha*third_term
-    info['metric'] = third_term
+    #lossv2 = lazyql_loss +  self.alpha*third_term
+    #info['metric'] = third_term
     
     loss = first_term + second_term + self.alpha*third_term
 
-    return(lossv2,info)
-    #return(loss,**info{'p':ap,'n':an,'n_p':nn_prime,'metric':third_term})
+    #return(lossv2,info)
+    return(loss,{'p':ap,'n':an,'n_p':nn_prime,'metric':third_term})
 
 #==================================================================================================
 #
