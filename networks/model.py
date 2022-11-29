@@ -45,7 +45,9 @@ class ModelWrapper(nn.Module):
     def forward(self,pcl,):
         # Mini Batch training due to memory constrains
         if self.training == False:
-            return(self.model(pcl))
+            pred = self.model(pcl)
+            #pred = F.softmax(pred,dim=1) # Normalize descriptors such that ||D||2 = 1
+            return(pred)
 
         anchor,positive,negative = pcl[0]['anchor'],pcl[0]['positive'][0],pcl[0]['negative'][0]
         pose_anchor,pose_positive,pose_negative = pcl[1]['anchor'],pcl[1]['positive'],pcl[1]['negative']
@@ -72,7 +74,7 @@ class ModelWrapper(nn.Module):
                 continue
 
             pred = self.model(pclt)
-            pred = F.softmax(pred,dim=1) # Normalize descriptors such that ||D||2 = 1
+            #pred = F.softmax(pred,dim=1) # Normalize descriptors such that ||D||2 = 1
             # sum_values = torch.sum(pred,dim=1) # Used to check if descriptors are normalized 
             a_idx = num_anchor
             p_idx = num_pos+num_anchor

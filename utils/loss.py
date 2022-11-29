@@ -190,10 +190,11 @@ class LazyQuadrupletLoss():
     idx_arr   = np.arange(n_negs)
     elig_neg  = np.setxor1d(idx_arr,n_hard_idx) # Remove from the negative array the hard negative index
     n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
-    #dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
+    dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
     dn_rand   = n_torch[n_rand_idx] # random negative descriptor
-    nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
+    #nr2h= self.loss(dn_hard,dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
     
+    nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
     n_random_hard_idx = [torch.argmin(nn_prime).cpu().numpy().tolist()] # get the negative with smallest distance w.r.t NR (aka NRH)
     nr2h = nn_prime[n_random_hard_idx] # get the smallest distance between NR and NRH
 
@@ -216,7 +217,7 @@ class LazyQuadrupletLoss():
 
 class MetricLazyQuadrupletLoss():
   def __init__(self, metric= 'L2', margin1 = 0.5 ,margin2 = 0.5 , alpha = 0.1, version = 'v2', eps=1e-8, **argv):
-    
+
     #assert isinstance(margin,list) 
     #assert len(margin) == 2,'margin has to have 2 elements'
     self.reduction = 'mean'
@@ -227,6 +228,8 @@ class MetricLazyQuadrupletLoss():
     self.alpha = alpha
     self.version = version
     # Loss types
+    self.LQL = LazyQuadrupletLoss()
+
     self.loss = get_distance_function(metric)
   
   def __str__(self):
@@ -292,14 +295,20 @@ class MetricLazyQuadrupletLoss():
     if self.version == 'v1':
         third_term =  pap
     elif self.version == 'v2':
-        third_term= torch.max(self.eps,(ap/pap)-1) 
+        third_term= torch.max(self.eps,(ap/pap)-1)
+    else:
+        raise ValueError
 
     # Compute metric term
-    
+    lazyql_loss,info = self.LQL(descriptor) 
     # compute loss
+    lossv2 = lazyql_loss +  self.alpha*third_term
+    info['metric'] = third_term
+    
     loss = first_term + second_term + self.alpha*third_term
 
-    return(loss,{'p':ap,'n':an,'n_p':nn_prime,'metric':third_term})
+    return(lossv2,info)
+    #return(loss,**info{'p':ap,'n':an,'n_p':nn_prime,'metric':third_term})
 
 #==================================================================================================
 #
