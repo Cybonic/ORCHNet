@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from networks import modeling 
 import torchmetrics
 import os
@@ -71,7 +72,8 @@ class ModelWrapper(nn.Module):
                 continue
 
             pred = self.model(pclt)
-            
+            pred = F.softmax(pred,dim=1) # Normalize descriptors such that ||D||2 = 1
+            # sum_values = torch.sum(pred,dim=1) # Used to check if descriptors are normalized 
             a_idx = num_anchor
             p_idx = num_pos+num_anchor
             n_idx = num_pos+num_anchor + num_neg
