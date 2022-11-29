@@ -38,6 +38,8 @@ class Trainer(BaseTrainer):
 
         self.eval_metric = config['trainer']['eval_metric']
         self.top_cand_retrieval = config['retrieval']['top_cand']
+        map_samples = len(self.val_loader.dataset.get_map_idx())
+        self.top_cand_retrieval.append(round(map_samples/100))
         assert isinstance(self.top_cand_retrieval,list)
 
         self.train_metrics = None#StreamSegMetrics(len(labels))
