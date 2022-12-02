@@ -41,9 +41,16 @@ def kl_divergence_loss(anchor,positive,negative, eps=1e-6,**arg):
 # ==========================================================================
 #  cosine
 # ==========================================================================
+def cosine_torch_loss(x,y,eps=1e-8,dim=0):
+    #return torch.max(1-torch.abs(cosine(x,y,dim)),torch.tensor(eps))
+    loss = 1 - F.cosine_similarity(x, y, dim, eps)
+    return torch.max(loss,torch.tensor(eps))
+
 def cosine_loss(x,y,eps=1e-8,dim=0):
     return torch.max(1-torch.abs(cosine(x,y,dim)),torch.tensor(eps))
-
+    #value = 1-F.cosine_similarity(x, y, dim, eps)
+    #return torch.max(value,torch.tensor(eps))
+    
 def cosine(a,b,dim=0):
     num = torch.tensordot(b,a,dims=([1,2],[1,2])).squeeze()
     den = (torch.norm(a,dim=2)*torch.norm(b,dim=2)).squeeze()
@@ -81,13 +88,28 @@ def totensorformat(x,y):
     return(x,y)
 
 
+
+def kernel_product(w, x, distance = 'L2', mode = "gaussian", s = 0.1,dim=2):
+    w_i = w
+    x_j = x
+
+    if distance == 'L2':
+        xmy = ((w_i - x_j)**2).sum(dim)
+    #st()
+    if   mode == "gaussian" : K = torch.exp( - (xmy**2 / (s**2) ))
+    elif mode == "laplace"  : K = torch.exp( - torch.sqrt(xmy + (s**2)))
+    elif mode == "energy"   : K = torch.pow(   xmy + (s**2), -.25 )
+
+    return K
+
+
+
 def get_distance_function(name):
-    if name == 'L2':
-        loss = L2_loss 
-    elif name == 'cosine':
-        loss = cosine_loss
-    elif name == 'kl_divergence':
-        loss = logit_kl_divergence_loss
+    if name == 'L2':              loss = L2_loss 
+    elif name == 'cosine':        loss = cosine_loss
+    elif name == 'cosine_torch':  loss = cosine_torch_loss
+    elif name == 'kl_divergence': loss = logit_kl_divergence_loss
+    elif name == 'kernel_product': loss = kernel_product
     else:
         raise NameError
     return(loss)
@@ -271,11 +293,11 @@ class MetricLazyQuadrupletLoss():
     n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
     dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
     dn_rand   = n_torch[n_rand_idx] # random negative descriptor
-    #nn_prime= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
+    nr2h= self.loss(dn_hard,dn_rand,dim=2) # distance between hard and random 
 
-    nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
-    n_random_hard_idx = [torch.argmin(nn_prime).cpu().numpy().tolist()] # get the negative with smallest distance w.r.t NR (aka NRH)
-    nr2h = nn_prime[n_random_hard_idx] # get the smallest distance between NR and NRH
+    #nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
+    #n_random_hard_idx = [torch.argmin(nn_prime).cpu().numpy().tolist()] # get the negative with smallest distance w.r.t NR (aka NRH)
+    #nr2h = nn_prime[n_random_hard_idx] # get the smallest distance between NR and NRH
 
     # Poses
     #----------------------------------------
@@ -290,7 +312,7 @@ class MetricLazyQuadrupletLoss():
     # Compute Loss terms
     #----------------------------------------
     # Compute first term
-    s1 = ap.squeeze() - an.squeeze() + self.margin1
+    s1 = (ap.squeeze()) - an.squeeze() + self.margin1
     first_term = torch.max(self.eps,s1).clamp(min=0.0)
     # Compute second term
     s2 = ap.squeeze() - nr2h.squeeze() + self.margin2
@@ -303,16 +325,10 @@ class MetricLazyQuadrupletLoss():
     else:
         raise ValueError
 
-    # Compute metric term
-    #lazyql_loss,info = self.LQL(descriptor) 
-    # compute loss
-    #lossv2 = lazyql_loss +  self.alpha*third_term
-    #info['metric'] = third_term
-    
     loss = first_term + second_term + self.alpha*third_term
 
     #return(lossv2,info)
-    return(loss,{'p':ap,'n':an,'n_p':nn_prime,'metric':third_term})
+    return(loss,{'p':ap,'n':an,'n_p':nr2h,'metric':third_term})
 
 #==================================================================================================
 #
@@ -402,3 +418,82 @@ class LazyTripletplus():
         loss = value.clamp(min=0.0)
 
         return(loss,{'p':fap,'n':delta_an})
+
+
+
+#==================================================================================================
+#
+# Minimal Spanning Tree Matching Loss
+#
+#==================================================================================================
+
+
+def kernel_product(w, x, dim=1,distance = 'L2', mode = "gaussian", s = 0.1):
+    w_i = w
+    x_j = x
+
+    if distance == 'L2':
+        xmy = ((w_i - x_j)**2).sum(dim)
+    #st()
+    if   mode == "gaussian" : K = torch.exp( - (xmy**2 / (s**2) ))
+    elif mode == "laplace"  : K = torch.exp( - torch.sqrt(xmy + (s**2)))
+    elif mode == "energy"   : K = torch.pow(   xmy + (s**2), -.25 )
+    else:
+        K = xmy
+
+    return K
+
+
+def comp_adjacency_matrix(feat_vector,mode = None,distance = 'L2',dim=0):
+    n_nodes = feat_vector.shape[0]
+    M = torch.zeros((n_nodes,n_nodes))
+    for i,a in enumerate(feat_vector):
+        for j,b in enumerate(feat_vector):
+            M[i,j] = kernel_product(a, b, mode = mode,distance = distance, s = 0.1,dim=dim)
+            if i==j:
+                M[i,j]=0
+    norm_M = F.softmax(M,dim=1)
+    return(norm_M)
+    
+
+def comp_min_spanning_tree(adjacency_matrix):
+    '''
+    adjacency_matrix -> [nxn] ,where n are the number of nodes
+    '''
+    n_nodes = adjacency_matrix.shape[0]
+    min_spanning_tree = torch.zeros((n_nodes,n_nodes))
+
+    not_excludes = torch.arange(1,n_nodes)
+    curr_node = 0
+    for i in range(n_nodes-1):
+        
+        row = adjacency_matrix[curr_node,not_excludes] # get all nodes that were not yet selected
+        next_node = not_excludes[torch.argmin(row).item()] # get global indice
+        min_spanning_tree[curr_node,next_node] = 1  # populate matrix with 1, which means there exist a link
+        curr_node = next_node   # update current node
+        not_excludes = np.setxor1d(not_excludes,next_node) # remove current node from the graph
+    return(min_spanning_tree)
+
+
+class MSTMatchLoss():
+    def __init__(self, distance = 'L2',kernel = 'laplace',**argv):
+        self.loss_function = nn.BCELoss()
+        self.distance = distance
+        self.kernel = kernel
+
+    def __str__(self):
+        return type(self).__name__ + '_' + self.distance
+    
+    def __call__(self,descriptor,poses):
+        pa,pp,pn = poses['a'][0], poses['p'].squeeze(),poses['n'].squeeze()
+        vector  = torch.concat((descriptor['a'],descriptor['p'],descriptor['n']),dim=0)
+        poses  = torch.concat((pa,pp,pn),dim=0)
+        MP = comp_adjacency_matrix(poses,mode=None,dim=0)
+        #print(MP)
+        target = comp_min_spanning_tree(MP)
+        #print(target)
+        input = 1-comp_adjacency_matrix(vector,mode=None,dim=0)
+        #print(input)
+        #print(input.sum(1))
+        value = self.loss_function(input,target)
+        return value,{}
