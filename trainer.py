@@ -38,13 +38,11 @@ class Trainer(BaseTrainer):
 
         self.eval_metric = config['trainer']['eval_metric']
         self.top_cand_retrieval = config['retrieval']['top_cand']
-        map_samples = len(self.val_loader.dataset.get_map_idx())
-        self.top_cand_retrieval.append(round(map_samples/100))
         assert isinstance(self.top_cand_retrieval,list)
 
         self.train_metrics = None#StreamSegMetrics(len(labels))
         self.val_metrics = None #StreamSegMetrics(len(labels))
-        self.batch_size = 10
+        self.batch_size = 1
 
     def _reset_metrics(self):
         # Reset all evaluation metrics 
@@ -90,7 +88,7 @@ class Trainer(BaseTrainer):
         epoch_an = []
         epoch_ap = []
         epoch_loss = 0
-        self.batch_size = 10
+        self.batch_size = 1
         self.optimizer.zero_grad()
         for batch_idx in tbar:
             
