@@ -68,6 +68,15 @@ def L2_loss(a,b, dim=0, eps=1e-8):
     value = torch.sqrt(torch.sum(squared_diff,dim=dim)+eps)
     return torch.max(value,torch.tensor(eps))
 
+class L2Loss():
+    def __ini__(self,reduction='mean',dim=0):
+        self.reduction = reduction
+        self.dim=dim
+    
+    def _call__(self,input,target):
+        value = L2_loss(input,target, dim=0, eps=1e-8)
+        return torch.__dict__[self.reduction](value)
+
 def totensorformat(x,y):
     if not torch.is_tensor(x):
         x = torch.tensor(x,dtype=torch.float32)
@@ -87,20 +96,6 @@ def totensorformat(x,y):
     y = y.type(torch.float32)
     return(x,y)
 
-
-
-def kernel_product(w, x, distance = 'L2', mode = "gaussian", s = 0.1,dim=2):
-    w_i = w
-    x_j = x
-
-    if distance == 'L2':
-        xmy = ((w_i - x_j)**2).sum(dim)
-    #st()
-    if   mode == "gaussian" : K = torch.exp( - (xmy**2 / (s**2) ))
-    elif mode == "laplace"  : K = torch.exp( - torch.sqrt(xmy + (s**2)))
-    elif mode == "energy"   : K = torch.pow(   xmy + (s**2), -.25 )
-
-    return K
 
 
 
@@ -449,7 +444,8 @@ def comp_adjacency_matrix(feat_vector,mode = None,distance = 'L2',dim=0):
     M = torch.zeros((n_nodes,n_nodes))
     for i,a in enumerate(feat_vector):
         for j,b in enumerate(feat_vector):
-            M[i,j] = kernel_product(a, b, mode = mode,distance = distance, s = 0.1,dim=dim)
+            M[i,j]  = L2_loss(a,b)
+            #M[i,j] = kernel_product(a, b, mode = mode,distance = distance, s = 0.1,dim=dim)
             if i==j:
                 M[i,j]=0
     norm_M = F.softmax(M,dim=1)
@@ -476,18 +472,20 @@ def comp_min_spanning_tree(adjacency_matrix):
 
 
 class MSTMatchLoss():
-    def __init__(self, distance = 'L2',kernel = 'laplace',**argv):
-        self.loss_function = nn.BCELoss()
+    def __init__(self, reduction = 'mean',distance = 'L2',kernel = 'laplace',**argv):
+        # self.loss_function = nn.BCELoss()
+        self.loss_function = L2_loss
         self.distance = distance
         self.kernel = kernel
+        self.reduction = reduction
 
     def __str__(self):
         return type(self).__name__ + '_' + self.distance
     
     def __call__(self,descriptor,poses):
         pa,pp,pn = poses['a'][0], poses['p'].squeeze(),poses['n'].squeeze()
-        vector  = torch.concat((descriptor['a'],descriptor['p'],descriptor['n']),dim=0)
-        poses  = torch.concat((pa,pp,pn),dim=0)
+        vector  = torch.concat((descriptor['a'],descriptor['p']),dim=0)
+        poses  = torch.concat((pa,pp),dim=0)
         MP = comp_adjacency_matrix(poses,mode=None,dim=0)
         #print(MP)
         target = comp_min_spanning_tree(MP)
@@ -496,4 +494,5 @@ class MSTMatchLoss():
         #print(input)
         #print(input.sum(1))
         value = self.loss_function(input,target)
+        value = torch.__dict__[self.reduction](value)
         return value,{}
