@@ -97,7 +97,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='GRAD_TEST/10',
+      default='LossTest/MSTMatchLoss/20P_1-AP_L2_loss',
       help='Directory to get the trained model.'
   )
 
@@ -183,8 +183,8 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'LazyTripletplus_v5',
-      #choices = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
+      default = 'MSTMatchLoss',
+      #choices = ['MetricLazyQuadrupletLoss','LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -259,7 +259,7 @@ if __name__ == '__main__':
   loss_type  = SESSION['loss']['type']
   loss_param = SESSION['loss']['args']
 
-  if FLAGS.loss.startswith('LazyTripletplus'):
+  if FLAGS.loss.startswith('LazyTripletplus') or FLAGS.loss.startswith('MetricLazyQuadrupletLoss'):
     loss_type = FLAGS.loss.split('_')[0]
     loss_param['version'] = FLAGS.loss.split('_')[-1]
   # Load the loss function

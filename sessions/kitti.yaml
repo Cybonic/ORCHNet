@@ -10,19 +10,19 @@ root: '/home/tiago/Dropbox/research/datasets'
 root_ws: "C:\\Users\\Tiago\\TB\\datasets"
 
 retrieval:
-  top_cand: [1,5]
+  top_cand: [1,5] # aprox. 1%
   range_thres: 6
 
 
 train_loader:
   data:
     dataset: 'kitti'
-    sequence: ['08'] # ['00','02','05','06']
+    sequence: ['08','02','05','06']
     aug: True
     modality: 'bev'
     pos_range: 10
     neg_range: 50
-    ground_truth: 'hard' # Process of generating ground-truth positives and negatives for training;
+    #ground_truth: 'hard' # Process of generating ground-truth positives and negatives for training;
     # hard -> only the most nearest positive and negative is used;
     # distribution -> a set of positives and negatives are selected; negatives are selected randomly from all the map
   fraction: 0.3 
@@ -35,10 +35,9 @@ train_loader:
 val_loader:
   data:
     dataset: 'kitti'
-    sequence: ['08']
+    sequence: ['00']
     modality: 'bev' # ['range',projection,bev]'intensity','density','height','bev']
     pos_range: 25
-    ground_truth: 'hard'
   batch_size: 10 #50         # batch size
   workers:  0            # number of threads to get data
   shuffle: False
@@ -50,7 +49,7 @@ model:
   minibatch_size: 50
   pretrained_backbone: True
   output_dim: 256
-  use_tnet: True
+  use_tnet: False
   #in_channels: 1
 
 bev_param:
@@ -79,11 +78,13 @@ pcl_param:
   cluster_size: 64
 
 loss:
-  type: 'LazyTriplet_plus'
+  type: 'MSTMatchLoss'
   args:
     margin1: 0.5
     margin2: 0.5
-    metric: 'L2' # [L2,Hinge,cosine,kl_divergence]
+    metric: 'cosine' # [kernel_product,L2,Hinge,cosine,kl_divergence]
+    version: 'v6'
+    alpha: 0.1
     #reduction: 'mean'
     #mode: 'hard'
 
@@ -102,9 +103,9 @@ trainer:
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.001
-    weight_decay: 0.05
-  lr_scheduler: "StepLR"
+    lr: 0.01
+    weight_decay: 0.0005
+  lr_scheduler: "ReduceLROnPlateau"
 
 StepLR:
   step_size: 100 
@@ -117,7 +118,7 @@ CosineAnnealingWarmRestarts:
 
 ReduceLROnPlateau:
   mode: 'min' #['min','max'] (str)
-  factor: 0.01
-  patience: 10 # Number of epochs with no improvement after which learning rate will be reduced. 
+  factor: 0.1
+  patience: 5 # Number of epochs with no improvement after which learning rate will be reduced. 
   min_lr: 0.000001
 

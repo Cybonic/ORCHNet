@@ -140,8 +140,8 @@ class KittiDataset():
                         max_points=50000, 
                         pos_range = 10, # max positive range
                         neg_range = 50, # min negative range
-                        num_neg   = 10, # num of negative samples
-                        num_pos   = 1, # num of positive samples
+                        num_neg   = 1, # num of negative samples
+                        num_pos   = 20, # num of positive samples
                         image_proj=True,
                         aug = False,
                         **argv):
