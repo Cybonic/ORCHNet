@@ -104,6 +104,12 @@ def get_queries_dict(filename):
 
 
 def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], other_neg=False):
+    """
+        This function returns two a dict. with the following data 
+        # {'pcl':[],'pose':[]}
+        # both fields have the same data structure [query,pos,neg,neg2] 
+
+    """
 	#get query tuple for dictionary entry
 	#return list [query,positives,negatives]
     query_file  = os.path.join(root,dict_value["query"])
@@ -149,7 +155,6 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
         random.shuffle(dict_value["negatives"])
         for i in hard_neg:
             neg_files.append(QUERY_DICT[i]["query"])
-            
             neg_indices.append(i)
         j=0
         while(len(neg_files)<num_neg):
@@ -160,10 +165,10 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
                 neg_indices.append(dict_value["negatives"][j])
                 j+=1
 
-    negatives=load_pc_files(neg_files)
+    negatives = load_pc_files(neg_files)
 
     # ==========================================================================
-    # Get HARD Positives
+    # Get HARD Negatives
 
     if(other_neg==False):
         return [query,positives,negatives]
@@ -187,7 +192,8 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
         neg2_poses = QUERY_DICT[indice]["pose"]
 
     # Original implementation does not return Pose
-    return {'pcl':[query,positives,negatives,neg2],'pose':[query_pose,pos_poses,neg_poses,neg2_poses]}
+    #return {'pcl':[query,positives,negatives,neg2],'pose':[query_pose,pos_poses,neg_poses,neg2_poses]}
+    return {'q':query,'p':positives,'n':negatives,'hn':neg2},{'q':query_pose,'p':pos_poses,'n':neg_poses,'hm':neg2_poses}
 
 
 
@@ -259,15 +265,17 @@ class PointNetDataset():
         # The function returns a dict. with the following data 
         # {'pcl':[],'pose':[]}
         # both queries have the same data structure [query,pos,neg,neg2]    
-        tuple = get_query_tuple(self.base_path,query,self.num_pos,self.num_neg, self.queries, hard_neg=[], other_neg=True)
+        pcl_vec, pose_vec= get_query_tuple(self.base_path,query,self.num_pos,self.num_neg, self.queries, hard_neg=[], other_neg=True)
         
-        tuple['proj'] = []
-        for pcl in tuple['pcl']:
-            self.proj.load_pcl(pcl[0])
+        # Load PCL to the projection Lib to be handled properly 
+        # based on the input representation option
+        proj_vec = []
+        for key,pcl in pcl_vec.items():
+            self.proj.load_pcl(pcl[0]) # Load to projection lib
             data = self.proj.get_data(modality = self.modality, aug = self.aug)
-            tuple['proj'].append(data)
+            proj_vec.append(data)
         
-        return tuple['proj'], tuple['pose']
+        return proj_vec, pose_vec
 
 
 

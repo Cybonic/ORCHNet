@@ -38,7 +38,14 @@ class myplot():
         self.ax.set_aspect('equal')
         plt.pause(self.delay)
 
+
+    def add_to_plot(self,x,y,offset=20,color=[],zoom=10,scale = []):
+        points = self.p.set_offsets()
+
     def update_plot(self,x,y,offset=20,color=[],zoom=10,scale = []):
+        '''
+        
+        '''
         self.p.set_offsets(np.c_[x,y])
 
         if color != []:
