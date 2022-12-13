@@ -133,7 +133,11 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
+<<<<<<< HEAD
       default=100,
+=======
+      default=70,
+>>>>>>> stash@{1}
       help='Directory to get the trained model.'
   )
 

@@ -21,11 +21,15 @@ retrieval:
 train_loader:
   data:
     dataset: 'kitti'
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     sequence: ['08'] # ['00','02','05','06']
 =======
     sequence: ['00','02','05','06',]
 >>>>>>> Stashed changes
+=======
+    sequence:  ['00','02','05','06']
+>>>>>>> stash@{1}
     aug: True
     modality: 'bev'
     pos_range: 10
