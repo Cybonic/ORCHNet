@@ -19,25 +19,22 @@ import argparse
 import yaml
 from shutil import copyfile
 import os
-import shutil
-import tqdm
+
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import signal, sys
-from sklearn.neighbors import NearestNeighbors
-from torch import optim
+
 import torch 
 
 from networks.AttDLNet import *
 
 
-from datetime import datetime
 
-import random
+
+
 from torch.utils.data import DataLoader, random_split
 from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
 from dataloader.KITTI import KITTI
-from trainer import Trainer
+from mst_trainer import Trainer
 from networks import model
 from utils import loss as losses
 
@@ -97,7 +94,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='LossTest/MSTMatchLoss/20P_1-AP_L2_loss',
+      default='LossTest/MSTMatchLoss/10P10N',
       help='Directory to get the trained model.'
   )
 
@@ -132,7 +129,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=1000,
+      default=100,
       help='Directory to get the trained model.'
   )
 
@@ -204,7 +201,7 @@ if __name__ == '__main__':
   
   #torch.cuda.empty_cache()
   torch.autograd.set_detect_anomaly(True)
-  #force_cudnn_initialization()
+  force_cudnn_initialization()
   
 
   # open arch config file
