@@ -440,11 +440,13 @@ def kernel_product(w, x, dim=1,distance = 'L2', mode = "gaussian", s = 0.1):
 
 
 def comp_adjacency_matrix(feat_vector,mode = None,distance = 'L2',dim=0):
+    
+    distance_metric = get_distance_function(distance) 
     n_nodes = feat_vector.shape[0]
     M = torch.zeros((n_nodes,n_nodes))
     for i,a in enumerate(feat_vector):
         for j,b in enumerate(feat_vector):
-            M[i,j]  = L2_loss(a,b)
+            M[i,j]  = distance_metric(a,b)
             #M[i,j] = kernel_product(a, b, mode = mode,distance = distance, s = 0.1,dim=dim)
             if i==j:
                 M[i,j]=0
@@ -471,28 +473,40 @@ def comp_min_spanning_tree(adjacency_matrix):
     return(min_spanning_tree)
 
 
+
 class MSTMatchLoss():
-    def __init__(self, reduction = 'mean',distance = 'L2',kernel = 'laplace',**argv):
+    def __init__(self, reduction: str = 'sum',distance: str = 'L2',version: str = 'v2',**argv):
         # self.loss_function = nn.BCELoss()
-        self.loss_function = L2_loss
+        self.loss_function =  L2_loss
         self.distance = distance
-        self.kernel = kernel
+        #self.kernel = kernel
         self.reduction = reduction
+        self.version = version # version of loss is computed
 
     def __str__(self):
-        return type(self).__name__ + '_' + self.distance
+        return type(self).__name__ + '_' + self.distance + '_v:' + str(self.version)
     
     def __call__(self,descriptor,poses):
         pa,pp,pn = poses['a'][0], poses['p'].squeeze(),poses['n'].squeeze()
+        #vector  = torch.concat((descriptor['a'],descriptor['p'],descriptor['n']),dim=0)
+        #poses  = torch.concat((pa,pp,pn),dim=0)
         vector  = torch.concat((descriptor['a'],descriptor['p']),dim=0)
         poses  = torch.concat((pa,pp),dim=0)
         MP = comp_adjacency_matrix(poses,mode=None,dim=0)
         #print(MP)
         target = comp_min_spanning_tree(MP)
         #print(target)
-        input = 1-comp_adjacency_matrix(vector,mode=None,dim=0)
-        #print(input)
-        #print(input.sum(1))
-        value = self.loss_function(input,target)
+        pred_am = comp_adjacency_matrix(vector,mode=None,dim=0,distance=self.distance)
+        if self.version== 'v0':
+            input = 1-pred_am
+            value = self.loss_function(input,target)
+        elif self.version== 'v1':
+            input = pred_am # This is the adjacency matrix, a full connected graph,
+            value = input[target==1] #  use only the relevance score from the MST
+        elif self.version== 'v2':
+            value = pred_am # This is the adjacency matrix, a full connected graph,
+            #value = input
+            #value[target==0] *= -pred_am[target==0] #  use only the relevance score from the MST
+        
         value = torch.__dict__[self.reduction](value)
         return value,{}
