@@ -132,7 +132,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=1000,
+      default=70,
       help='Directory to get the trained model.'
   )
 

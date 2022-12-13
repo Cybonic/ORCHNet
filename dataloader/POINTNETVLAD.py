@@ -10,6 +10,9 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as Tr
 import torch
 from .laserscan import LaserScan
+import pandas as pd
+import pickle
+import random
 
 EXTENSIONS_SCAN = ['.bin']
 EXTENSIONS_LABEL = ['.label']
@@ -46,195 +49,262 @@ def parse_triplet_file(file):
 
     return anchors,positives,negatives
 
-def load_indices(file):
-    overlap = []
-    for f in open(file):
-        f = f.split(':')[-1]
-        indices = [int(i) for i in f.split(' ')]
-        overlap.append(indices)
-    return(overlap[0])
 
+def load_pc_file(file):
+	#returns Nx3 matrix
+	pc=np.fromfile(file, dtype=np.float64)
 
-def load_pose_to_RAM(file):
-    assert os.path.isfile(file)
-    pose_array = []
-    for line in tqdm(open(file), 'Loading to RAM'):
-        values_str = line.split(' ')
-        values = np.array([float(v) for v in values_str])
-        position = values[[3,7,11]]
-        #position[:,1:] =position[:,[2,1]] 
-        pose_array.append(position.tolist())
+	if(pc.shape[0]!= 4096*3):
+		print("Error in pointcloud shape")
+		return np.array([])
 
-    pose_array = np.array(pose_array)   
-    pose_array[:,1:] =pose_array[:,[2,1]] 
-    return(pose_array)
+	pc=np.reshape(pc,(pc.shape[0]//3,3))
+	return pc
 
+def load_pose_file(filename):
+    if not 'locations' in filename:
+        filename = fixe_name(filename)
 
-def get_files(target_dir):
-    assert os.path.isdir(target_dir)
-    files = np.array([os.path.join(target_dir.split(os.sep)[-2],f.split('.')[0]) for f in os.listdir(target_dir)])
-    idx = np.argsort(files)
-    fullfiles = np.array([os.path.join(target_dir,f) for f in os.listdir(target_dir)])
-    return(files[idx],fullfiles[idx])
+    with open(filename, 'rb') as handle:
+        queries = pd.read_csv(handle).to_numpy()[:,1:]
+        print("pose Loaded")
+    return queries
+
+def fixe_name(filename):
+    file_structure = filename.split(os.sep)
+    file_path = os.sep.join(file_structure[:-2])
+    file_name = file_structure[-2].split('_')
+
+    new_file_name = os.path.join(file_path,file_name[0] + '_' + 'locations' +'_'+ file_name[1] + '_' + file_name[2] + '.csv')
+    return(new_file_name)
 
 
 
-class kitti_velo_parser():
-    def __init__(self):
-        self.dt = []
+def load_pc_files(filenames):
+    pcs=[]
+    if not isinstance(filenames,list):
+        filenames = [filenames]
 
-    def velo_read(self,scan_path):
-        scan = np.fromfile(scan_path, dtype=np.float32)
-        scan = scan.reshape((-1, 4))
-        return(np.array(scan))
+    for filename in filenames:
+		#print(filename)
+        pc=load_pc_file(filename)
+        if(pc.shape[0]!=4096):
+            continue
+        pcs.append(pc)
+    pcs=np.array(pcs)
+    return pcs
+
+
+def get_queries_dict(filename):
+	#key:{'query':file,'positives':[files],'negatives:[files], 'neighbors':[keys]}
+	with open(filename, 'rb') as handle:
+		queries = pickle.load(handle)
+		print("Queries Loaded.")
+		return queries
+
+
+def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], other_neg=False):
+    """
+        This function returns two a dict. with the following data 
+        # {'pcl':[],'pose':[]}
+        # both fields have the same data structure [query,pos,neg,neg2] 
+
+    """
+	#get query tuple for dictionary entry
+	#return list [query,positives,negatives]
+    query_file  = os.path.join(root,dict_value["query"])
+    query = load_pc_files(query_file) #Nx3
+    query_pose = dict_value['pose']
+    #query = {'pcl':query_pcl,'pose':query_pose}
+    random.shuffle(dict_value["positives"])
+    
+    # ==========================================================================
+    # Get Positive files
+    pos_files=[]
+    pos_poses=[]
+
+    if num_pos > len(dict_value["positives"]):
+        num_pos = len(dict_value["positives"])
+
+    for i in range(num_pos):
+        indice = dict_value["positives"][i]
+        pos_files.append(os.path.join(root,QUERY_DICT[indice]["query"]))
+        pos_poses.append(QUERY_DICT[indice]["pose"])
+    
+    positives  = load_pc_files(pos_files)
+
+    # ==========================================================================
+    # Get Negatives
+    neg_files=[]
+    neg_indices=[]
+    neg_poses = []
+
+    if num_neg > len(dict_value["negatives"]):
+        num_neg = len(dict_value["negatives"])
+
+    if(len(hard_neg)==0):
+        random.shuffle(dict_value["negatives"])
+        for i in range(num_neg):
+            indice = dict_value["negatives"][i]
+            neg_files.append(os.path.join(root,QUERY_DICT[indice]["query"]))
+            neg_poses.append(QUERY_DICT[indice]["pose"])
+
+            ne = dict_value["negatives"][i]
+            neg_indices.append(ne)
+    else:
+        random.shuffle(dict_value["negatives"])
+        for i in hard_neg:
+            neg_files.append(QUERY_DICT[i]["query"])
+            neg_indices.append(i)
+        j=0
+        while(len(neg_files)<num_neg):
+            if not dict_value["negatives"][j] in hard_neg:
+                indice = dict_value["negatives"][j]
+                neg_files.append(os.path.join(root,QUERY_DICT[indice]["query"]))
+                neg_poses.append(QUERY_DICT[indice]["pose"])
+                neg_indices.append(dict_value["negatives"][j])
+                j+=1
+
+    negatives = load_pc_files(neg_files)
+
+    # ==========================================================================
+    # Get HARD Negatives
+
+    if(other_neg==False):
+        return [query,positives,negatives]
+	#For Quadruplet Loss
+    else:
+		#get neighbors of negatives and query
+        neighbors=[]
+        for pos in dict_value["positives"]:
+            neighbors.append(pos)
+        for neg in neg_indices:
+            for pos in QUERY_DICT[neg]["positives"]:
+                neighbors.append(pos)
+        possible_negs= list(set(QUERY_DICT.keys())-set(neighbors))
+        random.shuffle(possible_negs)
+        
+        if(len(possible_negs)==0):
+            return [query, positives, negatives, np.array([])]
+        
+        indice = possible_negs[0]
+        neg2= load_pc_files(os.path.join(root,QUERY_DICT[indice]["query"]))
+        neg2_poses = QUERY_DICT[indice]["pose"]
+
+    # Original implementation does not return Pose
+    #return {'pcl':[query,positives,negatives,neg2],'pose':[query_pose,pos_poses,neg_poses,neg2_poses]}
+    return {'q':query,'p':positives,'n':negatives,'hn':neg2},{'q':query_pose,'p':pos_poses,'n':neg_poses,'hm':neg2_poses}
+
+
 
 # ===================================================================================================================
 #       
 #
 #
 # ===================================================================================================================
-class FileStruct():
-    def __init__(self,root,dataset,sequence,sync = True):
-        # assert isinstance(sequences,list)
-        self.pose = []
-        self.point_cloud_files = []
-        self.target_dir = []
+def load_picklet(root,filename):
+        
+    pickle_file = os.path.join(root,filename)
+    assert os.path.isfile(pickle_file),'target file does nor exist: ' + pickle_file
 
-        #for seq in sequences:
-        self.target_dir = os.path.join(root,dataset,sequence)
-        #self.target_dir.append(target_dir)
-        assert os.path.isdir(self.target_dir),'target dataset does nor exist: ' + self.target_dir
-
-        pose_file = os.path.join(self.target_dir,'poses.txt')
-        assert os.path.isfile(pose_file),'pose file does not exist: ' + pose_file
-        self.pose = load_pose_to_RAM(pose_file)
-        #self.pose.extend(pose)
-
-        point_cloud_dir = os.path.join(self.target_dir,'velodyne')
-        assert os.path.isdir(point_cloud_dir),'point cloud dir does not exist: ' + point_cloud_dir
-        self.file_names, self.point_cloud_files = get_files(point_cloud_dir)
-
-    
-    def _get_point_cloud_file_(self,idx=None):
-        if idx == None:
-            return(self.point_cloud_files,self.file_names)
-        return(self.point_cloud_files[idx],self.file_names[idx])
-    
-    def _get_pose_(self,idx=np.nan):
-        if not isinstance(idx,(np.ndarray, np.generic)):
-            idx = np.array(idx)
-        if idx.size==1 and np.isnan(idx):
-            return(self.pose)
-        return(self.pose[idx])
-    
-    def _get_target_dir(self):
-        return(self.target_dir)
+    queries = get_queries_dict(pickle_file)
+    return queries 
 
 
-class KittiDataset():
+class PointNetDataset():
     def __init__(self,
-                        root,
-                        dataset,
-                        sequence,
-                        modality,
-                        max_points=50000, 
-                        pos_range = 10, # max positive range
-                        neg_range = 50, # min negative range
-                        num_neg   = 1, # num of negative samples
-                        num_pos   = 10, # num of positive samples
-                        image_proj=True,
-                        aug = False,
-                        **argv):
+                    root,
+                    pickle_file, # choose between train and test files
+                    num_neg, # num of negative samples
+                    num_pos, # num of positive samples
+                    modality,
+                    image_proj,
+                    aug,
+                    max_points,
+                    **argv):
         
         self.plc_files  = []
         self.plc_names  = []
-        self.poses      = []
         self.anchors    = []
         self.positives  = []
         self.negatives  = []
         self.modality = modality
-        baseline_idx  = 0 
-        self.max_points = max_points
         self.aug = aug
+        self.num_neg = num_neg
+        self.num_pos = num_pos
         #self.ground_truth_mode = argv['ground_truth']
-        assert isinstance(sequence,list)
 
-        for seq in sequence:
-            kitti_struct = FileStruct(root, dataset, seq)
-            files,name = kitti_struct._get_point_cloud_file_()
-            self.plc_files.extend(files)
-            self.plc_names.extend(name)
-            pose = kitti_struct._get_pose_()
-            self.poses.extend(pose)
-            target_dir = kitti_struct._get_target_dir()
-            # Load indicies to split the dataset in queries, positive and map 
-            triplet_file = os.path.join(target_dir,'sync_triplets.txt')
-            
-            assert os.path.isfile(triplet_file), 'Triplet indice file does not exist: ' + triplet_file
-            anchor, _ , _ = parse_triplet_file(triplet_file)
-            positive , negative = gen_ground_truth(pose,anchor,pos_range,neg_range,num_neg,num_pos)
-            
-            self.anchors.extend(baseline_idx + anchor)
-            self.positives.extend(baseline_idx + positive)
-            self.negatives.extend(baseline_idx + negative)
+        # Stuff related to the data organization
+        self.base_path = os.path.join(root,'benchmark_datasets')
+        self.queries = load_picklet(root,pickle_file)
+      
+        self.num_samples  = len(self.queries.keys())
 
-            baseline_idx += len(files)
-        # Load dataset and laser settings
-        self.poses = np.array(self.poses)
+        # Stuff related to sensor parameters for obtaining final representation
         cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
         sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
         
-        self.num_samples = len(self.plc_files)
-        dataset_param = sensor_cfg[seq]
+        dataset_param = sensor_cfg['oxford']
         sensor =  sensor_cfg[dataset_param['sensor']]
 
         if modality in ['range','projection','remissions']:
             proj_pram = dataset_param['RP']
-            self.proj = SphericalRangeProjScan(**sensor,**proj_pram,roi = dataset_param['roi'],parser = kitti_velo_parser(),**argv)
+            self.proj = SphericalRangeProjScan(**sensor,**proj_pram,roi = dataset_param['roi'],parser = None,**argv)
         elif modality in ['intensity','density','height','bev']:
             proj_pram = dataset_param['BEV']
-            self.proj = BirdsEyeViewScan(**proj_pram, roi = dataset_param['roi'], parser = kitti_velo_parser(),image_proj=image_proj,**argv)
+            self.proj = BirdsEyeViewScan(**proj_pram, roi = dataset_param['roi'], parser = None,image_proj=image_proj,**argv)
         else:
-            self.proj = LaserScan(parser = kitti_velo_parser(), max_points = self.max_points, **argv)
-    
+            self.proj = LaserScan(parser = None, max_points = max_points, **argv)
+
     def __len__(self):
         return(self.num_samples)
 
     def _get_proj_(self,idx,modality=None,yaw=None):
         # Get point cloud file
-        file = self.plc_files[idx]
-        self.proj.open_scan(file)
-        return self.proj.get_data(modality = self.modality, aug = self.aug),None
+        query = self.queries[idx]
+        # The function returns a dict. with the following data 
+        # {'pcl':[],'pose':[]}
+        # both queries have the same data structure [query,pos,neg,neg2]    
+        pcl_vec, pose_vec= get_query_tuple(self.base_path,query,self.num_pos,self.num_neg, self.queries, hard_neg=[], other_neg=True)
+        
+        # Load PCL to the projection Lib to be handled properly 
+        # based on the input representation option
+        proj_vec = []
+        for key,pcl in pcl_vec.items():
+            self.proj.load_pcl(pcl[0]) # Load to projection lib
+            data = self.proj.get_data(modality = self.modality, aug = self.aug)
+            proj_vec.append(data)
+        
+        return proj_vec, pose_vec
 
-    def _get_pose(self):
-        return np.array(self.poses)
-    
-    def _get_anchor(self):
-        return np.array(self.anchors)
 
 
-class KITTIEval(KittiDataset):
-    def __init__(self,root, dataset, sequence,   # Projection param and sensor
-                modality = 'range' , 
+class PointNetEval(PointNetDataset):
+    def __init__(self,
+                root,
+                pickle_file, # choose between train and test files
+                num_neg   = 10, # num of negative samples
+                num_pos   = 1, # num of positive samples
+                modality  = 'range',
+                image_proj= True,
+                aug = False,
                 num_subsamples = -1,
                 mode = 'Disk',
                 max_points = 10000, 
-                image_proj=True,
-                **arg
+                **argv
                 ):
-        
-        super(KITTIEval,self).__init__(root, dataset, sequence, modality=modality,max_points=max_points,**arg)
+
+        super(PointNetEval,self).__init__(root, pickle_file, num_neg, num_pos, modality, image_proj, aug, max_points,**argv)
         self.modality = modality
         self.mode     = mode
         self.preprocessing = PREPROCESSING
 
-        self.num_samples = self.num_samples
+        #self.num_samples = self.num_samples
         # generate map indicies:ie inidices that do not belong to the anchors/queries
         self.idx_universe = np.arange(self.num_samples)
 
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors) 
         # Build ground truth table  
-        #self.positives , _ = gen_ground_truth(self.poses,self.anchors,5,0,0,12) # pos_thres,neg_thres,num_neg,num_pos
         self.poses = self._get_pose()
         self.gt_table = comp_gt_table(self.poses,self.anchors,arg['pos_range'])
          # Selection of a smaller sample size for debugging
@@ -266,8 +336,8 @@ class KITTIEval(KittiDataset):
         return(self.gt_table)
     
     def _get_representation_(self,idx):
-        img,_ = self._get_proj_(idx,self.modality)
-        return img
+        img,pose = self._get_proj_(idx,self.modality)
+        return img,pose
 
     def load_RAM(self):
         img   = {}       
@@ -304,7 +374,7 @@ class KITTIEval(KittiDataset):
         return np.array(self.map_idx,np.uint32)
 
 
-class KITTITriplet(KittiDataset):
+class KITTITriplet(PointNetDataset):
     def __init__(self,
                 root,
                 dataset,

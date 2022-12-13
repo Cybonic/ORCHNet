@@ -17,7 +17,7 @@ retrieval:
 train_loader:
   data:
     dataset: 'kitti'
-    sequence: ['08','02','05','06']
+    sequence:  ['00','02','05','06']
     aug: True
     modality: 'bev'
     pos_range: 10
