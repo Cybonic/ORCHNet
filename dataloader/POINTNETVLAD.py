@@ -30,24 +30,6 @@ def subsampler(universe,num_sub_samples):
         num_sub_samples = len(universe)
     return np.random.randint(0,len(universe),size=num_sub_samples)
 
-def parse_triplet_file(file):
-    assert os.path.isfile(file)
-    f = open(file)
-    anchors = []
-    positives = []
-    negatives = []
-    for line in f:
-        value_str = line.rstrip().split('_')
-        anchors.append(int(value_str[0].split(':')[-1]))
-        positives.append(int(value_str[1].split(':')[-1]))
-        negatives.append([int(i) for i in value_str[2].split(':')[-1].split(' ')])
-    f.close()
-
-    anchors = np.array(anchors,dtype=np.uint32)
-    positives = np.array(positives,dtype=np.uint32)
-    negatives = np.array(negatives,dtype=np.uint32)
-
-    return anchors,positives,negatives
 
 
 def load_pc_file(file):
@@ -103,6 +85,14 @@ def get_queries_dict(filename):
 		return queries
 
 
+def gather_files(queries:list):
+    file_buffer = []
+    for k,v in queries.items():
+        file_buffer.append(v['query'])
+    
+    return file_buffer
+
+
 def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], other_neg=False):
     """
         This function returns two a dict. with the following data 
@@ -115,14 +105,14 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
     query_file  = os.path.join(root,dict_value["query"])
     query = load_pc_files(query_file) #Nx3
     query_pose = dict_value['pose']
-    #query = {'pcl':query_pcl,'pose':query_pose}
-    random.shuffle(dict_value["positives"])
-    
+
     # ==========================================================================
     # Get Positive files
+    random.shuffle(dict_value["positives"])
+
     pos_files=[]
     pos_poses=[]
-
+    
     if num_pos > len(dict_value["positives"]):
         num_pos = len(dict_value["positives"])
 
@@ -152,6 +142,7 @@ def get_query_tuple(root,dict_value, num_pos, num_neg, QUERY_DICT, hard_neg=[], 
             ne = dict_value["negatives"][i]
             neg_indices.append(ne)
     else:
+
         random.shuffle(dict_value["negatives"])
         for i in hard_neg:
             neg_files.append(QUERY_DICT[i]["query"])
@@ -217,10 +208,12 @@ class PointNetDataset():
                     pickle_file, # choose between train and test files
                     num_neg, # num of negative samples
                     num_pos, # num of positive samples
+                    num_other,
                     modality,
                     image_proj,
                     aug,
                     max_points,
+                    mode='RAM', # mode of loading data: [Disk, RAM]
                     **argv):
         
         self.plc_files  = []
@@ -232,8 +225,12 @@ class PointNetDataset():
         self.aug = aug
         self.num_neg = num_neg
         self.num_pos = num_pos
+        self.other_neg = num_other
+        self.hard_neg = 0
+        self.mode = mode # mode of loading data: [Disk, RAM]
         #self.ground_truth_mode = argv['ground_truth']
 
+        self.root = root
         # Stuff related to the data organization
         self.base_path = os.path.join(root,'benchmark_datasets')
         self.queries = load_picklet(root,pickle_file)
@@ -256,65 +253,192 @@ class PointNetDataset():
         else:
             self.proj = LaserScan(parser = None, max_points = max_points, **argv)
 
+        self.file_buffer = gather_files(self.queries)
+
+        if self.mode == 'RAM':
+            self.RAM_data = self.load_to_RAM()
+
+
+
+    def load_to_RAM(self):
+        #file_buffer = gather_files(self.queries)
+        self.anchor_idx_buffer = []
+        proj_vec = []
+        pose_vec = []
+        num_samples = len(self.queries.keys()) 
+        for i in tqdm(range(num_samples),"Loading to RAM"):
+        #for i,file in enumerate(file_buffer):
+            
+            anchor = self.queries[i]
+            if len(anchor['positives'])> 0: # No loop
+                self.anchor_idx_buffer.append(i)
+
+            query_file  = os.path.join(self.base_path,anchor['query']) # build the pcl file path
+            pcl = load_pc_files(query_file).squeeze()
+            self.proj.load_pcl(pcl) # Load the pcl and send to the projection lib
+            data = self.proj.get_data(modality = self.modality, aug = self.aug) # map to the representation
+            proj_vec.append(data)
+            pose_vec.append(anchor['pose'])
+
+        self.num_samples = len(self.anchor_idx_buffer)
+        return{'proj':np.array(proj_vec),'pose':np.array(pose_vec)}
+
+    
+    def _load_pose_pcl_pair_(self,idx):
+        file = self.queries[idx]['query']
+        query_file  = os.path.join(self.base_path,file) # build the pcl file path
+        pcl = load_pc_files(query_file).squeeze()
+        self.proj.load_pcl(pcl) # Load the pcl and send to the projection lib
+        proj = self.proj.get_data(modality = self.modality, aug = self.aug) # map to the representation
+        pose = self.queries[idx]['pose']
+
+        return {'proj':proj,'pose':pose}
+
     def __len__(self):
         return(self.num_samples)
 
-    def _get_proj_(self,idx,modality=None,yaw=None):
-        # Get point cloud file
-        query = self.queries[idx]
-        # The function returns a dict. with the following data 
-        # {'pcl':[],'pose':[]}
-        # both queries have the same data structure [query,pos,neg,neg2]    
-        pcl_vec, pose_vec= get_query_tuple(self.base_path,query,self.num_pos,self.num_neg, self.queries, hard_neg=[], other_neg=True)
+
+    def get_triplet_tuple_idx(self, query_idx: int)-> dict :
+
+        num_pos = self.num_pos 
+        num_neg = self.num_neg
+        # hard_neg = self.hard_neg
+        # other_neg = self.other_neg
+
+        tuple_idx = self.queries[query_idx]
         
-        # Load PCL to the projection Lib to be handled properly 
-        # based on the input representation option
-        proj_vec = []
-        for key,pcl in pcl_vec.items():
-            self.proj.load_pcl(pcl[0]) # Load to projection lib
-            data = self.proj.get_data(modality = self.modality, aug = self.aug)
-            proj_vec.append(data)
+        # ------------------------------------------------------
+        # Positives samples
+
+        positives = tuple_idx['positives']
+        random.shuffle(positives) # Shuffle the positive indices
+        # set number of positives to retrieve equal the actual size of positives, 
+        # when not enough positives exist
+        if num_pos > len(positives):
+            num_pos = len(positives)
+
+        # Generate the positive indices
+        idx = np.arange(0,self.num_pos,dtype=np.int32)
+        pos_idx_vec = np.array(positives)[idx] 
+
+        # ------------------------------------------------------
+        # Negative samples
+        negatives = tuple_idx['negatives']
+        random.shuffle(negatives) # Shuffle the negative indices
+        # set number of negatives to retrieve equal the actual size of negatives, 
+        # when not enough negatives exist
+        if num_neg > len(negatives):
+            num_neg = len(negatives)
         
-        return proj_vec, pose_vec
+        idx = np.arange(0,self.num_neg,dtype=np.int32)
+        neg_idx_vec = np.array(negatives)[idx]
+
+        return {'pos':pos_idx_vec,'neg':neg_idx_vec}	
 
 
 
-class PointNetEval(PointNetDataset):
+
+class PointNetTriplet(PointNetDataset):
     def __init__(self,
                 root,
                 pickle_file, # choose between train and test files
-                num_neg   = 10, # num of negative samples
-                num_pos   = 1, # num of positive samples
+                num_neg   = 18, # num of negative samples
+                num_pos   = 2, # num of positive samples
+                other_neg = 1,
                 modality  = 'range',
                 image_proj= True,
                 aug = False,
                 num_subsamples = -1,
-                mode = 'Disk',
+                mode = 'RAM',
                 max_points = 10000, 
                 **argv
                 ):
 
-        super(PointNetEval,self).__init__(root, pickle_file, num_neg, num_pos, modality, image_proj, aug, max_points,**argv)
+        super(PointNetTriplet,self).__init__(root, 
+                                            pickle_file, 
+                                            num_neg, 
+                                            num_pos,
+                                            other_neg,
+                                            modality, 
+                                            image_proj, 
+                                            aug, 
+                                            max_points,
+                                            mode=mode,
+                                            **argv)
         self.modality = modality
         self.mode     = mode
         self.preprocessing = PREPROCESSING
 
-        #self.num_samples = self.num_samples
-        # generate map indicies:ie inidices that do not belong to the anchors/queries
-        self.idx_universe = np.arange(self.num_samples)
-
-        self.map_idx  = np.setxor1d(self.idx_universe,self.anchors) 
-        # Build ground truth table  
-        self.poses = self._get_pose()
-        self.gt_table = comp_gt_table(self.poses,self.anchors,arg['pos_range'])
-         # Selection of a smaller sample size for debugging
-        if num_subsamples > 0:
-            self.set_subsamples(num_subsamples)
-
-        assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
         
-        if self.mode == 'RAM':
-            self.inputs = self.load_RAM()
+    def get_tuple_data(self,idx: int):
+        """
+        Given a indice, this function returns the respective pose and representation
+
+        args: 
+            idx: (int) indice of the data sample
+        
+        return: 
+            proj: (pytorch tensor)
+            pose: (pytorch tensor)
+
+        """
+        if self.mode=='RAM':
+
+            if isinstance(idx,list) or isinstance(idx,np.ndarray):# Positives or negatives
+                proj = [self.preprocessing(self.RAM_data['proj'][i]) for i in idx]
+                proj = torch.stack(proj,dim=0)
+                pose = [self.RAM_data['pose'][i]for i in idx]
+                pose = np.stack(pose,axis=0).astype(np.float32)
+            else:
+                proj = self.preprocessing(self.RAM_data['proj'][idx])
+                pose = np.asarray(self.RAM_data['pose'][idx],dtype = np.float32)
+        
+        else: # Disk
+            
+            if isinstance(idx,list): # Positives or negatives
+                proj = []
+                pose = []
+                for i in idx:
+                    pair = self._load_pose_pcl_pair_(idx)
+                    proj.append(self.preprocessing(pair['proj']))
+                    pose.append(pair['pose'])
+
+                proj = torch.stack(proj,dim=0)
+                pose = np.stack(pose,axis=0).astype(np.float32)
+            
+            else: # Queries
+                pair = self._load_pose_pcl_pair_(idx)
+                proj = self.preprocessing(pair['proj'])
+                pose = np.asarray(pair['pose'],dtype = np.float32)
+
+        pose = torch.tensor(pose).reshape(-1,2)
+        return proj,pose
+    
+
+
+    def get_data(self,anchor_index):
+        anchor_index = self.anchor_idx_buffer[anchor_index]
+        # point clouds are already converted to the input representation, 
+        an_pcl_tns,an_pose_tns = self.get_tuple_data(anchor_index)
+
+        # Get anchor's triplet indices
+        triplet_tuple = self.get_triplet_tuple_idx(anchor_index)
+
+
+        # Load positive data
+        pos_idx = triplet_tuple['pos']
+        pos_pcl_tns,pos_pose_tns = self.get_tuple_data(pos_idx)
+
+        # Load negative data
+        neg_idx = triplet_tuple['neg']
+        neg_pcl_tns,neg_pose_tns = self.get_tuple_data(neg_idx)
+
+
+        pcl_tuple  = {'anchor':an_pcl_tns,'positive':pos_pcl_tns,'negative':neg_pcl_tns}
+        pose_tuple = {'anchor':an_pose_tns,'positive':pos_pose_tns,'negative':neg_pose_tns}
+      
+        return(pcl_tuple,pose_tuple)
+
 
     def set_subsamples(self,samples):
         anchor_subset_idx = subsampler(self.anchors,samples)
@@ -326,208 +450,25 @@ class PointNetEval(PointNetDataset):
         self.poses = np.array(self.poses)[self.idx_universe]
         self.num_samples = len(self.idx_universe)
 
+
     def compt_gt_table(self,anchor,positive,num_samples):
         gt_mapping = np.zeros((len(anchor),num_samples),np.uint8)
         for i,p in enumerate(positive):
             gt_mapping[i,p]=1
         return(gt_mapping)
 
-    def get_GT_Map(self):
-        return(self.gt_table)
-    
-    def _get_representation_(self,idx):
-        img,pose = self._get_proj_(idx,self.modality)
-        return img,pose
+    def get_GT_Map(self)-> list:
+        return ([])
 
-    def load_RAM(self):
-        img   = {}       
-        for i in tqdm(self.idx_universe,"Loading to RAM"):
-            img[i] = self._get_representation_(i)#.astype(np.uint8)
-        return img
+    def __getitem__(self,index:int ):
+        
+        pcl,pose = self.get_data(index)
 
-    def get_data(self,index):
-        global_index = self.idx_universe[index] # Only useful when subsampler is on
+        # pcl: {'anchor' , 'positive':[],'negative':[]} 
+        # pose: {'anchor' , 'positive':[],'negative':[]} 
         
-        if self.mode == 'RAM':
-            data = self.inputs[global_index]         
-        elif self.mode == 'Disk':
-            data = self._get_representation_(global_index)
-        
-        plc = self.preprocessing(data)
-        return(plc,global_index)
-
-    def __getitem__(self,index):
-        pcl,index = self.get_data(index)
-        
-        return(pcl,index.astype(np.float32))
+        return(pcl,pose)
 
     def __len__(self):
         return(self.num_samples)
         
-    def get_pose(self):
-        return np.array(self.poses)
-
-    def get_anchor_idx(self):
-        return np.array(self.anchors,np.uint32)
-
-    def get_map_idx(self):
-        return np.array(self.map_idx,np.uint32)
-
-
-class KITTITriplet(PointNetDataset):
-    def __init__(self,
-                root,
-                dataset,
-                sequence,
-                sync = True, 
-                mode='Disk', 
-                modality = 'projection', 
-                aug=False, 
-                num_subsamples = 0,
-                max_points=10000,
-                image_proj=True,
-                **argv):
-        super(KITTITriplet,self).__init__(root,dataset,sequence, modality=modality,max_points=max_points,image_proj=image_proj,aug=aug,**argv)
-
-        self.modality = modality
-        self.aug_flag = aug
-        self.mode     = mode
-        self.preprocessing = PREPROCESSING
-        # Select randomly a sub set
-        #self.num_samples = len(self._get_point_cloud_file_())
-        self.idx_universe = np.arange(self.num_samples)
-        if num_subsamples > 0:
-            self.set_subsampler(num_subsamples)
-        # Load to RAM
-        if self.mode == 'RAM':
-            self.inputs = self.load_RAM()
-
-    def set_subsampler(self,samples):
-        subset_idx     = subsampler(self.anchors,samples)
-        self.anchors   = np.array(self.anchors)[subset_idx]
-        self.positives = np.array(self.positives)[subset_idx]
-        self.negatives = np.array(self.negatives)[subset_idx]
-
-        from utils.utils  import unique2D
-        positive = unique2D(self.positives) 
-        negative = unique2D(self.negatives)
-        self.idx_universe =np.unique(np.concatenate((self.anchors,positive,negative)))
-        self.num_samples = len(self.idx_universe)
-
-    def load_RAM(self):
-        img   = {}        
-        for i in tqdm(self.idx_universe,"Loading to RAM"):
-            data= self._get_representation_(i)#.astype(np.uint8)
-            img[i]=data#.astype(np.uint8)
-        return img
-
-    def get_data(self,index):
-        an_idx,pos_idx,neg_idx = self.anchors[index],self.positives[index], self.negatives[index]
-        if self.mode == 'RAM':     
-            # point clouds are already converted to the input representation, is only required to 
-            #  convert to tensor 
-            plt_anchor = self.preprocessing(self.inputs[an_idx])
-            plt_pos = torch.stack([self.preprocessing(self.inputs[i]) for i in pos_idx],axis=0)
-            plt_neg = torch.stack([self.preprocessing(self.inputs[i]) for i in neg_idx],axis=0)
-
-        elif self.mode == 'Disk':
-            plt_anchor = self.preprocessing(self._get_representation_(an_idx))
-            plt_pos = torch.stack([self.preprocessing(self._get_representation_(i)) for i in pos_idx],axis=0)
-            plt_neg = torch.stack([self.preprocessing(self._get_representation_(i)) for i in neg_idx],axis=0)
-          
-        else:
-            raise NameError
-
-        an_poses  = self.poses[an_idx].reshape(-1,3).astype(np.float32)
-        pos_poses = self.poses[pos_idx].reshape(-1,3).astype(np.float32)
-        neg_poses = self.poses[neg_idx].reshape(-1,3).astype(np.float32)
-
-        pcl  = {'anchor':plt_anchor,'positive':plt_pos,'negative':plt_neg}
-        #indx = {'anchor':an_idx.astype(np.int32),'positive':pos_idx.astype(np.int32),'negative':neg_idx.astype(np.int32)}
-        indx = {'anchor':an_poses,'positive':pos_poses,'negative':neg_poses}
-        #indx = {'anchor':len(plt_anchor),'positive':len(plt_pos),'negative':len(plt_neg)}
-        return(pcl,indx)
-
-    def _get_representation_(self,idx):
-        img,_ = self._get_proj_(idx,self.modality)
-        return img
-
-    def __getitem__(self,index):
-        pcl,indx = self.get_data(index)
-        #indx =torch.tensor(indx)
-        return(pcl,indx)
-
-    def get_pose(self):
-        return np.array(self.poses)
-
-    def __len__(self):
-        return(len(self.anchors))
-
-
-class KITTI():
-    def __init__(self,**kwargs):
-
-        self.valloader   = None
-        self.trainloader = None
-        num_subsamples = -1
-        debug = False
-
-        if 'debug' in kwargs and kwargs['debug'] == True:
-            num_subsamples = 100
-            print("[Kitti] Debug mode On Training and Val data are the same")
-            debug  =True 
-
-        if 'num_subsamples' in kwargs:
-            num_subsamples = kwargs['num_subsamples']
-
-        if 'val_loader' in kwargs:
-            val_cfg   = kwargs['val_loader']
-            
-
-            self.val_loader = KITTIEval( root =  kwargs['root'],
-                                            mode = kwargs['mode'],
-                                            num_subsamples = num_subsamples,
-                                            **val_cfg['data']
-                                            )
-
-            self.valloader   = DataLoader(self.val_loader,
-                                    batch_size = val_cfg['batch_size'],
-                                    num_workers= 0,
-                                    pin_memory=True,
-                                    )
-
-        if 'train_loader'  in kwargs:
-
-            train_cfg = kwargs['train_loader']
-
-            self.train_loader = KITTITriplet(root =  kwargs['root'],
-                                                mode = kwargs['mode'], 
-                                                num_subsamples = num_subsamples,
-                                                **train_cfg['data'],
-                                                )
-
-            self.trainloader   = DataLoader(self.train_loader,
-                                        batch_size = 1, #train_cfg['batch_size'],
-                                        shuffle    = train_cfg['shuffle'],
-                                        num_workers= 0,
-                                        pin_memory=True,
-                                        drop_last=True,
-                                        )
-        
-        # For debugging Use the same data 
-        #if debug:
-        #    self.valloader = self.trainloader
-
-
-    def get_train_loader(self):
-        return self.trainloader
-    
-    def get_test_loader(self):
-        raise NotImplementedError
-    
-    def get_val_loader(self):
-        return  self.valloader
-    
-    def get_label_distro(self):
-        raise NotImplemented
-		#return  1-np.array(self.label_disto)

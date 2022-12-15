@@ -83,8 +83,8 @@ class AttVLADHead(nn.Module):
                                 output_dim=out_dim, 
                                 gating=True, 
                                 add_batch_norm=True,
-                                is_training=True),
-                  nn.Linear(out_dim,out_dim)
+                                is_training=True)
+                  #nn.Linear(out_dim,out_dim)
                   )
   def forward(self,x):
     return self.model(x)
@@ -100,8 +100,8 @@ class VLADHead(nn.Module):
                                 output_dim=out_dim, 
                                 gating=True, 
                                 add_batch_norm=True,
-                                is_training=True),
-                              nn.Linear(out_dim,out_dim)
+                                is_training=True)
+                             # nn.Linear(out_dim,out_dim)
                         )
   def forward(self,x):
     return self.model(x)
@@ -116,14 +116,28 @@ class AttDLNet(nn.Module):
     
    
   def forward(self,x):
+    b = x.shape[0]
+    s = x.shape[1]
+
     y = self.backbone(x)
     #y['out'] = torch.flatten(y['out'],start_dim=1)
     y = y['out']
     if len(y.shape)<4: # Pointnet returns [batch x feature x samples]
       y = y.unsqueeze(dim=-1)
+    
+    y = y.reshape((b,-1,1024))
+    y_nom= F.normalize(y, p=2.0, dim=1, eps=1e-12, out=None)
       #y = y.transpose(1,3)
-    z = self.classifier(y)
-    return z
+    z = self.classifier(y_nom)
+    z_norm= F.normalize(z, p=2.0, dim=1, eps=1e-12, out=None)
+    # output =  z_norm.reshape((b,s,256))
+    return z_norm
+  
+  def get_backbone_params(self):
+        return self.backbone.parameters()
+
+  def get_classifier_params(self):
+      return self.classifier.parameters()
   
   def get_backbone_params(self):
         return self.backbone.parameters()

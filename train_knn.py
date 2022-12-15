@@ -129,11 +129,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-<<<<<<< HEAD
-      default=70,
-=======
       default=100,
->>>>>>> tash_issue
       help='Directory to get the trained model.'
   )
 

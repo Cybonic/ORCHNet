@@ -206,7 +206,7 @@ class Trainer(BaseTrainer):
             self.writer.add_scalar(f'{wrt_mode}/{k}', v, epoch)
             #if 'mIoU' not in k: self.writer.add_scalar(f'train/{k}', v, self.wrt_step)
         if 'train' in wrt_mode:
-            for i, opt_group in enumerate(self.optimizer.param_groups):
+            for i, opt_group in enumerate(self.optimizer.s):
                 self.writer.add_scalar(f'{wrt_mode}/Learning_rate_{i}', opt_group['lr'], epoch)
     
 

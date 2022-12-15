@@ -6,19 +6,19 @@ experim_name: 'default'
 ################################################################################
 pretrained_root: 'checkpoints'
 n_gpu: 1
-root: '/home/tiago/Dropbox/research/datasets'
-root_ws: "C:\\Users\\Tiago\\TB\\datasets"
+root: '/home/tiago/Dropbox/research/datasets/pointnetvlad'
+root_ws: "C:\\Users\\Tiago\\TB\\datasets\\pointnetvlad"
 
 retrieval:
-  top_cand: [1,5,25] # aprox. 1%
+  top_cand: [1,5]
   range_thres: 6
 
 
 train_loader:
   data:
-    dataset: 'kitti'
-    sequence: ['08'] # ['00','02','05','06']
-    aug: True
+    dataset: 'oxford'
+    sequence: '2014-05-19-13-20-57' # ['00','02','05','06']
+    submap: 'pointcloud_20m_10overlap'
     modality: 'bev'
     pos_range: 10
     neg_range: 50
@@ -34,8 +34,9 @@ train_loader:
   
 val_loader:
   data:
-    dataset: 'kitti'
-    sequence: ['08']
+    dataset: 'oxford'
+    pos_seq:    ['2014-05-19-13-20-57'] # ['00','02','05','06']
+    anchor_seq: ['2014-06-26-09-31-18']
     modality: 'bev' # ['range',projection,bev]'intensity','density','height','bev']
     pos_range: 25
   batch_size: 10 #50         # batch size
@@ -78,11 +79,12 @@ pcl_param:
   cluster_size: 64
 
 loss:
-  type: 'MSTMatchLoss'
+  type: 'LazyTriplet_plus'
   args:
     margin1: 0.5
     margin2: 0.5
-    metric: 'L2' # [L2,Hinge,cosine,kl_divergence]
+    metric: 'kl_divergence' # [L2,Hinge,cosine,kl_divergence]
+    version: 'v1'
     #reduction: 'mean'
     #mode: 'hard'
 
@@ -101,8 +103,8 @@ trainer:
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.01
-    weight_decay: 0.0005
+    lr: 0.0001
+    weight_decay: 0.05
   lr_scheduler: "ReduceLROnPlateau"
 
 StepLR:
@@ -116,7 +118,7 @@ CosineAnnealingWarmRestarts:
 
 ReduceLROnPlateau:
   mode: 'min' #['min','max'] (str)
-  factor: 0.1
-  patience: 5 # Number of epochs with no improvement after which learning rate will be reduced. 
+  factor: 0.01
+  patience: 10 # Number of epochs with no improvement after which learning rate will be reduced. 
   min_lr: 0.000001
 

@@ -10,8 +10,8 @@ class SphericalRangeProjScan:
 
   def __init__(self,  H=64, 
                       W=1024, 
-                      fov_up=3.0, 
-                      fov_down=-25.0,
+                      fov_up = 3.0, 
+                      fov_down = -25.0,
                       parser = None, 
                       max_depth = None, 
                       image_proj = True, 
@@ -104,6 +104,18 @@ class SphericalRangeProjScan:
     self.set_points(points, remissions)
 
 
+  def load_pcl(self,scan):
+    # Read point cloud already loaded
+    self.reset()
+   
+    points = scan[:, 0:3]    # get xyz
+    remissions = np.zeros(scan.shape[0])
+    if scan.shape[1]==4:
+      remissions = scan[:, 3]  # get remission
+
+    self.set_points(points, remissions)
+
+
 
   def set_points(self, points, remissions):
     """ Set scan attributes (instead of opening from file)
@@ -161,6 +173,7 @@ class SphericalRangeProjScan:
     norm_pointcloud = self.points - np.mean(self.points, axis=0) 
     norm_pointcloud /= np.max(np.linalg.norm(norm_pointcloud, axis=1))
     self.points = norm_pointcloud
+
 
   def set_augmentation(self):
     # https://towardsdatascience.com/deep-learning-on-point-clouds-implementing-pointnet-in-google-colab-1fd65cd3a263
