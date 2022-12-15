@@ -83,8 +83,8 @@ class AttVLADHead(nn.Module):
                                 output_dim=out_dim, 
                                 gating=True, 
                                 add_batch_norm=True,
-                                is_training=True),
-                  nn.Linear(out_dim,out_dim)
+                                is_training=True)
+                  #nn.Linear(out_dim,out_dim)
                   )
   def forward(self,x):
     return self.model(x)
@@ -100,8 +100,8 @@ class VLADHead(nn.Module):
                                 output_dim=out_dim, 
                                 gating=True, 
                                 add_batch_norm=True,
-                                is_training=True),
-                              nn.Linear(out_dim,out_dim)
+                                is_training=True)
+                             # nn.Linear(out_dim,out_dim)
                         )
   def forward(self,x):
     return self.model(x)
