@@ -121,8 +121,10 @@ class AttDLNet(nn.Module):
     y = y['out']
     if len(y.shape)<4: # Pointnet returns [batch x feature x samples]
       y = y.unsqueeze(dim=-1)
+    
+    y_nom= F.normalize(y, p=2.0, dim=1, eps=1e-12, out=None)
       #y = y.transpose(1,3)
-    z = self.classifier(y)
+    z = self.classifier(y_nom)
     return z
   
   def get_backbone_params(self):
