@@ -94,11 +94,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-<<<<<<< Updated upstream
       default='GRAD_TEST/10',
-=======
-      default='LossTest/MSTMatchLoss/10P10N',
->>>>>>> Stashed changes
       help='Directory to get the trained model.'
   )
 
@@ -133,11 +129,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-<<<<<<< HEAD
       default=100,
-=======
-      default=70,
->>>>>>> stash@{1}
       help='Directory to get the trained model.'
   )
 
