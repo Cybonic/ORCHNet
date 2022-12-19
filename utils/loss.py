@@ -205,11 +205,9 @@ class LazyQuadrupletLoss():
     # Random negative (NR)
     n_negs    = n_torch.shape[0]
     idx_arr   = np.arange(n_negs)
-    elig_neg  = np.setxor1d(idx_arr,n_hard_idx) # Remove from the negative array the hard negative index
+    elig_neg  = np.setxor1d(idx_arr,n_hard_idx) # Remove the hard negative index from the negative array  
     n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
-    dn_hard   = n_torch[n_hard_idx] # Hard negative descriptor
     dn_rand   = n_torch[n_rand_idx] # random negative descriptor
-    #nr2h= self.loss(dn_hard,dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
     
     nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
     n_random_hard_idx = [torch.argmin(nn_prime).cpu().numpy().tolist()] # get the negative with smallest distance w.r.t NR (aka NRH)
@@ -375,6 +373,7 @@ class LazyTripletplus():
 
         a_torch,n_torch = totensorformat(a,n)
         neg_loss_array = self.loss(a_torch, n_torch,dim=2)
+
         fan = torch.__dict__[self.reduction](neg_loss_array)
 
         # 1st version
