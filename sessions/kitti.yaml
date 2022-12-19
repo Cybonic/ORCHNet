@@ -95,7 +95,7 @@ trainer:
   save_dir: "checkpoints/"
   monitor: "max recall" # [off, max mIoU]
   val_per_epochs: 1
-  eval_metric: 'L2_loss'
+  eval_metric: 'L2'
   results_dir: "/media/tiago/BIG/Orchards/temp/"
 
 optimizer:

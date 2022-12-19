@@ -74,7 +74,7 @@ range_param:
 
 pcl_param:
   in_channels: 1
-  max_samples: 10000
+  max_samples: 4096
   cluster_size: 64
 
 loss:
