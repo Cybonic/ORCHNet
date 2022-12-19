@@ -24,9 +24,10 @@ class Trainer(BaseTrainer):
                         iter_per_epoch,
                         device = 'cpu',
                         run_name = 'default',
+                        train_epoch_zero = False
                         ):
 
-        super(Trainer, self).__init__(model, resume, config, iter_per_epoch,run_name=run_name,device=device)
+        super(Trainer, self).__init__(model, resume, config, iter_per_epoch,run_name=run_name,device=device,train_epoch_zero=train_epoch_zero)
 
         self.trainer_cfg    = config
         self.train_loader   = loader.get_train_loader()
@@ -40,7 +41,7 @@ class Trainer(BaseTrainer):
         self.top_cand_retrieval = config['retrieval']['top_cand']
         assert isinstance(self.top_cand_retrieval,list)
 
-        self.train_metrics = None#StreamSegMetrics(len(labels))
+        self.train_metrics = None #StreamSegMetrics(len(labels))
         self.val_metrics = None #StreamSegMetrics(len(labels))
         self.batch_size = 1
         

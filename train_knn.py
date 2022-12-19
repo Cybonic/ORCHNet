@@ -34,6 +34,7 @@ from torch.utils.data import DataLoader, random_split
 from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
 from dataloader.KITTI import KITTI
+from dataloader.POINTNETVLAD import POINTNETVLAD
 from mst_trainer import Trainer
 from networks import model
 from utils import loss as losses
@@ -67,7 +68,7 @@ def load_dataset(dataset,session,memory,max_points=50000,debug=False):
                         sensor        = sensor_cfg,
                         debug         = debug,
                         max_points = 50000)
-    else:
+    elif dataset == 'orchards-uk' :
 
         loader = ORCHARDS(root    = session[root_dir],
                             train_loader  = session['train_loader'],
@@ -76,6 +77,15 @@ def load_dataset(dataset,session,memory,max_points=50000,debug=False):
                             sensor        = sensor_cfg,
                             debug         = debug,
                             max_points = 30000)
+    elif dataset == 'pointnetvlad':
+        
+        
+        loader = POINTNETVLAD(root       = session[root_dir],
+                            train_loader  = session['train_loader'],
+                            val_loader    = session['val_loader'],
+                            mode          = memory,
+                            max_points = 50000
+                            )
     
     return(loader)
 
@@ -86,7 +96,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'SPoC_pointnet',
+      default=  'VLAD_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -94,7 +104,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='LossTest/MSTMatchLoss/10P10N',
+      default='Oxford',
       help='Directory to get the trained model.'
   )
 
@@ -145,7 +155,7 @@ if __name__ == '__main__':
       '--dataset',
       type=str,
       required=False,
-      default='kitti',
+      default='kitti', #
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -180,7 +190,7 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'MSTMatchLoss',
+      default = 'LazyQuadrupletLoss',
       #choices = ['MetricLazyQuadrupletLoss','LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
@@ -282,7 +292,8 @@ if __name__ == '__main__':
           loader = orchard_loader,
           iter_per_epoch = 10, # Verify this!!!
           device = FLAGS.device,
-          run_name = run_name
+          run_name = run_name,
+          train_epoch_zero = True 
           )
   
   trainer.Train()

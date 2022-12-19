@@ -12,7 +12,9 @@ def get_instance(module, name, config, *args):
 
 
 class BaseTrainer:
-    def __init__(self, model, resume, config, iters_per_epoch, train_logger=None, run_name='default',device='cpu'):
+    def __init__(self, model, resume, config, iters_per_epoch, train_logger=None, run_name='default',device='cpu',train_epoch_zero=False):
+        
+        self.train_epoch_zero = train_epoch_zero
         self.model = model
         self.config = config
 
@@ -146,7 +148,18 @@ class BaseTrainer:
         
         for epoch in range(self.start_epoch, self.epochs):
             
-            # VAL EPOCH
+            ## TRAIN EPOCh
+            if self.train_epoch_zero or epoch > 0 : # do not train at epoch 0,
+                # to evaluate the model in random state
+                train_results = self._train_epoch(epoch)
+                self.lr_scheduler.step(train_results['loss'])
+
+                if self.train_logger is not None:
+                    log = {'epoch' : epoch, **train_results}
+                    self.train_logger.add_entry(log)
+                
+
+            ## VAL EPOCH
             if (epoch % self.do_validation)  == 0:
                 val_results,_ = self._valid_epoch(epoch)
                 #val_results = {'recall':0, 'precision':0,'F1':0}
@@ -158,7 +171,6 @@ class BaseTrainer:
                 #self.print_table(val_results_label)
                 log = {'epoch' : epoch, **val_results[1]} # Top 1 candidate
                 
-        
                 # CHECKING IF THIS IS THE BEST MODEL (ONLY FOR VAL)
                 if self.mnt_mode != 'off': # and epoch % self.config['trainer']['val_per_epochs'] == 0:
                     try:
@@ -179,20 +191,17 @@ class BaseTrainer:
                         self.logger.info(f'\nPerformance didn\'t improve for {self.early_stoping} epochs')
                         self.logger.warning('Training Stoped')
                         break
+            
+            
+           
 
             # SAVE CHECKPOINT
             if epoch % self.save_period == 0 and self.save_period > 0:
                 self._save_checkpoint(epoch, save_best = self.improved)
                 self.improved = False
             
-            # TRAIN EPOCh
-            train_results = self._train_epoch(epoch)
             
-            self.lr_scheduler.step(train_results['loss'])
 
-            if self.train_logger is not None:
-                log = {'epoch' : epoch, **train_results}
-                self.train_logger.add_entry(log)
 
         # Register best scores and hyper
         if self.best_log == None:
