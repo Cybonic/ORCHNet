@@ -26,7 +26,7 @@ class LaserScan:
   """Class that contains LaserScan with x,y,z,r"""
   EXTENSIONS_SCAN = ['.bin']
 
-  def __init__(self, parser = None, max_rem = None, max_points = 10000, noise = 0.0002,**argv):
+  def __init__(self, parser = None, max_rem = None, max_points = -1, noise = 0.0002,**argv):
 
     self.reset()
     self.parser = parser
@@ -78,6 +78,16 @@ class LaserScan:
 
     self.set_points(points, remissions)
 
+  def load_pcl(self,scan):
+    # Read point cloud already loaded
+    self.reset()
+   
+    points = scan[:, 0:3]    # get xyz
+    remissions = np.zeros(scan.shape[0])
+    if scan.shape[1]==4:
+      remissions = scan[:, 3]  # get remission
+
+    self.set_points(points, remissions)
 
   def set_points(self, points, remissions):
     """ Set scan attributes (instead of opening from file)
@@ -93,7 +103,8 @@ class LaserScan:
     if remissions is not None and not isinstance(remissions, np.ndarray):
       raise TypeError("Remissions should be numpy array")
 
-    points,remissions = random_pcl_subsampling(points,remissions,self.max_points)
+    if self.max_points > 0:  # if max_points == -1 do not subsample
+      points,remissions = random_pcl_subsampling(points,remissions,self.max_points)
 
     # put in attribute
     self.points = points    # get xyz

@@ -16,10 +16,10 @@ retrieval:
 
 train_loader:
   data:
-    dataset: 'oxford'
-    sequence: '2014-05-19-13-20-57' # ['00','02','05','06']
+    dataset: 'pointnetvlad'
+    sequence: 'training_queries_baseline' # ['00','02','05','06']
     submap: 'pointcloud_20m_10overlap'
-    modality: 'bev'
+    modality: 'pcl'
     pos_range: 10
     neg_range: 50
     #ground_truth: 'hard' # Process of generating ground-truth positives and negatives for training;
@@ -34,9 +34,8 @@ train_loader:
   
 val_loader:
   data:
-    dataset: 'oxford'
-    pos_seq:    ['2014-05-19-13-20-57'] # ['00','02','05','06']
-    anchor_seq: ['2014-06-26-09-31-18']
+    dataset: 'pointnetvlad'
+    sequence: 'training_queries_baseline' # ['00','02','05','06']
     modality: 'bev' # ['range',projection,bev]'intensity','density','height','bev']
     pos_range: 25
   batch_size: 10 #50         # batch size

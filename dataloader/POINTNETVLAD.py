@@ -31,7 +31,6 @@ def subsampler(universe,num_sub_samples):
     return np.random.randint(0,len(universe),size=num_sub_samples)
 
 
-
 def load_pc_file(file):
 	#returns Nx3 matrix
 	pc=np.fromfile(file, dtype=np.float64)
@@ -213,7 +212,9 @@ class PointNetDataset():
                     image_proj,
                     aug,
                     max_points,
-                    mode='RAM', # mode of loading data: [Disk, RAM]
+                    mode, # [train, eval]
+                    memory='RAM', # mode of loading data: [Disk, RAM]
+                   
                     **argv):
         
         self.plc_files  = []
@@ -227,7 +228,8 @@ class PointNetDataset():
         self.num_pos = num_pos
         self.other_neg = num_other
         self.hard_neg = 0
-        self.mode = mode # mode of loading data: [Disk, RAM]
+        self.memory = memory # mode of loading data: [Disk, RAM]
+        self.mode = mode
         #self.ground_truth_mode = argv['ground_truth']
 
         self.root = root
@@ -255,7 +257,7 @@ class PointNetDataset():
 
         self.file_buffer = gather_files(self.queries)
 
-        if self.mode == 'RAM':
+        if self.memory == 'RAM':
             self.RAM_data = self.load_to_RAM()
 
 
@@ -274,6 +276,7 @@ class PointNetDataset():
                 self.anchor_idx_buffer.append(i)
 
             query_file  = os.path.join(self.base_path,anchor['query']) # build the pcl file path
+            #self.proj.open_scan(file)
             pcl = load_pc_files(query_file).squeeze()
             self.proj.load_pcl(pcl) # Load the pcl and send to the projection lib
             data = self.proj.get_data(modality = self.modality, aug = self.aug) # map to the representation
@@ -343,14 +346,15 @@ class PointNetTriplet(PointNetDataset):
                 root,
                 pickle_file, # choose between train and test files
                 num_neg   = 18, # num of negative samples
-                num_pos   = 2, # num of positive samples
+                num_pos   = 1, # num of positive samples
                 other_neg = 1,
                 modality  = 'range',
                 image_proj= True,
                 aug = False,
                 num_subsamples = -1,
-                mode = 'RAM',
+                memory = 'RAM',
                 max_points = 10000, 
+                mode = 'train', # [train, test]
                 **argv
                 ):
 
@@ -363,16 +367,17 @@ class PointNetTriplet(PointNetDataset):
                                             image_proj, 
                                             aug, 
                                             max_points,
-                                            mode=mode,
+                                            memory=memory,
+                                            mode = mode,
                                             **argv)
         self.modality = modality
-        self.mode     = mode
+        self.memory     = memory
         self.preprocessing = PREPROCESSING
 
         
     def get_tuple_data(self,idx: int):
         """
-        Given a indice, this function returns the respective pose and representation
+        Given an indice, this function returns the respective pose and representation
 
         args: 
             idx: (int) indice of the data sample
@@ -382,7 +387,7 @@ class PointNetTriplet(PointNetDataset):
             pose: (pytorch tensor)
 
         """
-        if self.mode=='RAM':
+        if self.memory=='RAM':
 
             if isinstance(idx,list) or isinstance(idx,np.ndarray):# Positives or negatives
                 proj = [self.preprocessing(self.RAM_data['proj'][i]) for i in idx]
@@ -463,12 +468,34 @@ class PointNetTriplet(PointNetDataset):
     def __getitem__(self,index:int ):
         
         pcl,pose = self.get_data(index)
-
-        # pcl: {'anchor' , 'positive':[],'negative':[]} 
-        # pose: {'anchor' , 'positive':[],'negative':[]} 
         
         return(pcl,pose)
 
     def __len__(self):
         return(self.num_samples)
-        
+
+
+
+class POINTNETVLAD():
+    def __init__(self,**argv):
+
+        train_cfg = argv['train_loader']
+
+        self.train_loader = PointNetTriplet(argv['root'],
+                    'training_queries_baseline.pickle',
+                    memory = argv['mode'],
+                    **train_cfg['data'],
+                    max_points=-1 # do not downsample
+                    )
+
+        self.trainloader = DataLoader(self.train_loader,
+                    batch_size = argv['train_loader']['batch_size'],
+                    num_workers= 0,
+                    pin_memory=False,
+                    )
+
+    def get_train_loader(self):
+        return self.trainloader
+    def get_val_loader(self):
+        return []
+

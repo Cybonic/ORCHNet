@@ -76,6 +76,16 @@ class BirdsEyeViewScan:
 
     self.set_points(points, remissions)
     
+  def load_pcl(self,scan):
+    # Read point cloud already loaded
+    self.reset()
+   
+    points = scan[:, 0:3]    # get xyz
+    remissions = np.zeros(scan.shape[0])
+    if scan.shape[1]==4:
+      remissions = scan[:, 3]  # get remission
+
+    self.set_points(points, remissions)
 
 
   def set_points(self, points, remissions):

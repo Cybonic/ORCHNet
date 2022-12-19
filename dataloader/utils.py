@@ -1,6 +1,7 @@
 
 from .ORCHARDS import ORCHARDS, OrchardDataset
 from .KITTI import KITTI,KittiDataset
+from .POINTNETVLAD import POINTNETVLAD
 import os
 
 def get_root_system():
@@ -38,8 +39,17 @@ def load_loader(**argv):
                             max_points    = 30000,
                             **argv
                             )
-    else:
+    elif argv['dataset'] == 'kitti':
         loader = KITTI(root       = session[root_dir],
+                            train_loader  = session['train_loader'],
+                            val_loader    = session['val_loader'],
+                            mode          = argv['memory'],
+                            num_subsamples= argv['subsamples'],
+                            max_points = 50000,
+                            **argv
+                            )
+    elif argv['dataset'] == 'pointnetvlad':
+        loader = POINTNETVLAD(root       = session[root_dir],
                             train_loader  = session['train_loader'],
                             val_loader    = session['val_loader'],
                             mode          = argv['memory'],
