@@ -91,7 +91,7 @@ class AttVLADHead(nn.Module):
 
 
 class VLADHead(nn.Module):
-  def __init__(self,in_dim=2048,out_dim=256,max_samples=128,cluster_size=20,**argv):
+  def __init__(self,in_dim=2048,out_dim=256,max_samples=128,cluster_size=64,**argv):
       super(VLADHead,self).__init__()
       self.model = nn.Sequential(
                               NetVLADLoupe(feature_size=in_dim, 

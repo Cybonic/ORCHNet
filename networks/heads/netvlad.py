@@ -27,8 +27,11 @@ class NetVLADLoupe(nn.Module):
             feature_size, cluster_size) * 1 / math.sqrt(feature_size))
         self.cluster_weights2 = nn.Parameter(torch.randn(
             1, feature_size, cluster_size) * 1 / math.sqrt(feature_size))
+        
+        
         self.hidden1_weights = nn.Parameter(torch.randn(
             cluster_size * feature_size, output_dim) * 1 / math.sqrt(feature_size))
+
 
         if add_batch_norm:
             self.cluster_biases = None
@@ -45,9 +48,11 @@ class NetVLADLoupe(nn.Module):
                 output_dim, add_batch_norm=add_batch_norm)
 
     def forward(self, x):
-        x = x.transpose(1, 3).contiguous()
+        #x = x.transpose(1, 3).contiguous()
         x = x.view((-1, self.max_samples, self.feature_size))
+        
         activation = torch.matmul(x, self.cluster_weights)
+        
         if self.add_batch_norm:
             # activation = activation.transpose(1,2).contiguous()
             activation = activation.view(-1, self.cluster_size)
@@ -56,26 +61,32 @@ class NetVLADLoupe(nn.Module):
             # activation = activation.transpose(1,2).contiguous()
         else:
             activation = activation + self.cluster_biases
+        
         activation = self.softmax(activation)
         activation = activation.view((-1, self.max_samples, self.cluster_size))
 
         a_sum = activation.sum(-2, keepdim=True)
-        a = a_sum * self.cluster_weights2
+        
+        a = torch.multiply(a_sum,self.cluster_weights2)
 
         activation = torch.transpose(activation, 2, 1)
+        
         x = x.view((-1, self.max_samples, self.feature_size))
         vlad = torch.matmul(activation, x)
+        
         vlad = torch.transpose(vlad, 2, 1)
-        vlad = vlad - a
+        
+        vlad = torch.subtract(vlad,a)
 
         vlad = F.normalize(vlad, dim=1, p=2)
         # vlad = vlad.view((-1, self.cluster_size * self.feature_size))
         vlad = vlad.reshape((-1, self.cluster_size * self.feature_size))
+        
         vlad = F.normalize(vlad, dim=1, p=2)
 
         vlad = torch.matmul(vlad, self.hidden1_weights)
 
-        #vlad = self.bn2(vlad)
+        vlad = self.bn2(vlad)
 
         if self.gating:
             vlad = self.context_gating(vlad)
@@ -90,6 +101,7 @@ class GatingContext(nn.Module):
         self.add_batch_norm = add_batch_norm
         self.gating_weights = nn.Parameter(
             torch.randn(dim, dim) * 1 / math.sqrt(dim))
+        
         self.sigmoid = nn.Sigmoid()
 
         if add_batch_norm:
