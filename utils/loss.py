@@ -487,10 +487,10 @@ class MSTMatchLoss():
     
     def __call__(self,descriptor,poses):
         pa,pp,pn = poses['a'][0], poses['p'].squeeze(),poses['n'].squeeze()
-        #vector  = torch.concat((descriptor['a'],descriptor['p'],descriptor['n']),dim=0)
-        #poses  = torch.concat((pa,pp,pn),dim=0)
-        vector  = torch.concat((descriptor['a'],descriptor['p']),dim=0)
-        poses  = torch.concat((pa,pp),dim=0)
+        vector  = torch.concat((descriptor['a'],descriptor['p'],descriptor['n']),dim=0)
+        poses  = torch.concat((pa,pp,pn),dim=0)
+        #vector  = torch.concat((descriptor['a'],descriptor['p']),dim=0)
+        #poses  = torch.concat((pa,pp),dim=0)
         MP = comp_adjacency_matrix(poses,mode=None,dim=0)
         #print(MP)
         target = comp_min_spanning_tree(MP)
@@ -506,6 +506,35 @@ class MSTMatchLoss():
             value = pred_am # This is the adjacency matrix, a full connected graph,
             #value = input
             #value[target==0] *= -pred_am[target==0] #  use only the relevance score from the MST
+        
+        value = torch.__dict__[self.reduction](value)
+        return value,{}
+
+
+class Ranking():
+    def __init__(self, reduction: str = 'sum',distance: str = 'L2',device: str = 'cpu',**argv):
+        # self.loss_function = nn.BCELoss()
+        self.sim_metric =  L2_loss
+        self.distance = distance
+        #self.kernel = kernel
+        self.reduction = reduction
+        self.device = device # version of loss is computed
+        self.loss = torch.nn.BCELoss()
+
+    def __str__(self):
+        return type(self).__name__ + '_' + self.distance  #+ '_v:' + str(self.version)
+    
+    def __call__(self,descriptor,poses):
+        label = torch.concat((torch.ones((descriptor['p'].shape[0])),torch.zeros((descriptor['n'].shape[0])))).to(self.device)
+        vector  = torch.concat((descriptor['p'],descriptor['n']),dim=0)
+        query = descriptor['a']
+
+        pa,pp,pn = poses['a'][0], poses['p'].squeeze(),poses['n'].squeeze()
+        #poses  = torch.concat((pp,pn),dim=0)
+        #vector  = torch.concat((descriptor['a'],descriptor['p']),dim=0)
+        #poses  = torch.concat((pa,pp),dim=0)
+        sim = self.sim_metric(query,vector,dim=1)
+        loss_value = self.loss(sim,label)
         
         value = torch.__dict__[self.reduction](value)
         return value,{}
