@@ -46,7 +46,7 @@ val_loader:
 
 model:
   type: 'AttVLAD_resnet50'
-  minibatch_size: 50
+  minibatch_size: 10
   pretrained_backbone: True
   output_dim: 256
   use_tnet: False
@@ -101,7 +101,7 @@ trainer:
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.01
+    lr: 0.001
     weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 

@@ -99,8 +99,8 @@ class Trainer(BaseTrainer):
                     
             batch_data ,info= self.model(input_tonsor)
             
-            batch_data /= self.batch_size
-            batch_data.backward()
+            #batch_data /= self.batch_size
+            #batch_data.backward()
 
             for key,value in info.items():
                 if key in epoch_loss_list:

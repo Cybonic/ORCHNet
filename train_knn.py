@@ -96,7 +96,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'VLAD_pointnet',
+      default=  'AttVLAD_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -104,7 +104,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='Oxford',
+      default='AttentionExperiments_skip',
       help='Directory to get the trained model.'
   )
 
@@ -169,14 +169,14 @@ if __name__ == '__main__':
       '--batch_size',
       type=int,
       required=False,
-      default=20,
+      default=9,
       help='Directory to get the trained model.'
   )
   parser.add_argument(
       '--mini_batch_size',
       type=int,
       required=False,
-      default=50, #  Max size (based on the negatives)
+      default=10, #  Max size (based on the negatives)
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -209,7 +209,7 @@ if __name__ == '__main__':
   assert not (FLAGS.modality=='bev' and FLAGS.model.endswith('pointnet')), 'BEV modality does not work with pointnet'
   assert not (FLAGS.modality=='pcl' and  'resnet' in FLAGS.model), 'PCL modality does not work with resnet'
   
-  #torch.cuda.empty_cache()
+  torch.cuda.empty_cache()
   torch.autograd.set_detect_anomaly(True)
   force_cudnn_initialization()
   
@@ -266,11 +266,11 @@ if __name__ == '__main__':
   loss_type  = SESSION['loss']['type']
   loss_param = SESSION['loss']['args']
 
-  if FLAGS.loss.startswith('LazyTripletplus') or FLAGS.loss.startswith('MetricLazyQuadrupletLoss'):
+  if FLAGS.loss.startswith('LazyTripletplus') or FLAGS.loss.startswith('MetricLazyQuadrupletLoss') or  FLAGS.loss.startswith('MSTMatchLoss'):
     loss_type = FLAGS.loss.split('_')[0]
     loss_param['version'] = FLAGS.loss.split('_')[-1]
   # Load the loss function
-  loss = losses.__dict__[loss_type](**loss_param)
+  loss = losses.__dict__[loss_type](**loss_param,device = FLAGS.device)
   print("*"*30)
   print(f'Loss: {loss}')
   print("*"*30)
@@ -293,7 +293,7 @@ if __name__ == '__main__':
           iter_per_epoch = 10, # Verify this!!!
           device = FLAGS.device,
           run_name = run_name,
-          train_epoch_zero = True 
+          train_epoch_zero = False 
           )
   
   trainer.Train()
