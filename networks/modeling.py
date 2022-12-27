@@ -3,6 +3,9 @@ from .backbone import resnet,mobilenetv2,pointnet
 from .AttDLNet import AttVLADHead,VLADHead,AttDLNet
 from .heads.pooling import GeM,SPoC
 from .utils import IntermediateLayerGetter
+from .AttDLNet import Attention
+import torch
+    
 
 def _place_resnet(name, backbone_name, output_dim, output_stride, pretrained_backbone,**argv):
 
@@ -42,15 +45,20 @@ def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
     backbone = pointnet.PointNet_features(dim_k=inplanes,use_tnet=argv['use_tnet'], scale=1)
 
     # Attention
-    if name == 'AttVLAD':
-        classifier = AttVLADHead(in_dim=inplanes,out_dim=output_dim, max_samples=max_samples)
-    elif name == 'VLAD':
+    #if name == 'AttVLAD':
+    #    classifier = AttVLADHead(in_dim=inplanes,out_dim=output_dim, max_samples=max_samples)
+    if name.endswith('VLAD'):
         classifier = VLADHead(in_dim=inplanes,out_dim=output_dim,max_samples=max_samples)
-    elif name == 'GeM':
+    elif name.endswith('GeM'):
         classifier = GeM()
-    elif name == 'SPoC':
+    elif name.endswith('SPoC'):
         classifier = SPoC()
-        
+    
+    if name.startswith('Att'):
+        classifier = torch.nn.Sequential(
+                  Attention(in_dim=inplanes,downscaler = 32, norm_layer=False),
+                  classifier
+    )
     # Global Features
     model = AttDLNet(backbone, classifier)
     return model
@@ -89,6 +97,13 @@ def AttVLAD_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('AttVLAD', 'pointnet', output_dim,**argv)
 
+def AttSPoC_pointnet(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('AttSPoC', 'pointnet', output_dim,**argv)
+
+def AttGeM_pointnet(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('AttGeM', 'pointnet', output_dim,**argv)
 # ================================================================
 # ResNet50
 # ================================================================
