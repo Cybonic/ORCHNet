@@ -414,7 +414,7 @@ class KITTI():
             val_cfg   = kwargs['val_loader']
             
 
-            self.val_loader = KITTIEval( root =  kwargs['root'],
+            self.val_loader = KITTIEval(   root =  kwargs['root'],
                                             mode = kwargs['mode'],
                                             num_subsamples = num_subsamples,
                                             **val_cfg['data']
