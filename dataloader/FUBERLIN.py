@@ -224,7 +224,13 @@ class FUBerlinEval( ):
     def __len__(self):
         return len(self.pcl_collection)
 
-    def get_gt_loops(self):
+    def get_map_idx(self):
+        return self.database_idx
+
+    def get_anchor_idx(self):
+        return self.anchors_idx
+
+    def get_GT_Map(self):
         return self.gt_table
     
     def get_data(self,idx):
@@ -257,8 +263,8 @@ class FUBERLIN():
             ):
         
         
-        anchor_parm = val_loader['anchor_parm']
-        database_parm = val_loader['database_parm']
+        anchor_parm = val_loader['anchor']
+        database_parm = val_loader['database']
         memory = val_loader['memory']
         batch_size = val_loader['batch_size']
 
@@ -271,3 +277,7 @@ class FUBERLIN():
                                     )
     def get_val_loader(self):
         return self.valloader
+    
+    def get_train_loader(self):
+        return []
+

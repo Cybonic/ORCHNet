@@ -6,7 +6,7 @@ experim_name: 'default'
 ################################################################################
 pretrained_root: 'checkpoints'
 n_gpu: 1
-root: ''/home/tiago/Dropbox/FuBerlin-mission/mutliagent-loop-closure/dataset''
+root: '/home/tiago/Dropbox/FuBerlin-mission/mutliagent-loop-closure/dataset'
 root_ws: "C:\\Users\\Tiago\\TB\\datasets"
 
 retrieval:
@@ -46,7 +46,7 @@ val_loader:
       name:     'vehicleB'
       modality: 'pcl'
       max_points: 100000
-  
+  memory: 'RAM'
   pos_range: 25
   batch_size: 10 #50         # batch size
 

@@ -37,9 +37,83 @@ import random
 from torch.utils.data import DataLoader, random_split
 from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
-from trainer import Trainer
+from dataloader.KITTI import KITTI
+from dataloader.POINTNETVLAD import POINTNETVLAD
+from dataloader.FUBERLIN import FUBERLIN
+from mst_trainer import Trainer
 from networks import model
 
+def load_dataset(dataset,session,memory,max_points=50000,debug=False):
+
+    if os.sep == '\\':
+        root_dir = 'root_ws'
+    else:
+        root_dir = 'root'
+
+
+    if dataset == 'kitti':
+        
+        if debug:
+            session['train_loader']['data']['sequence'] = ['00']
+            session['val_loader']['data']['sequence'] = ['00']
+            print("[Main] Debug mode ON: training and Val on Sequence 00 \n")
+
+        session['val_loader']['data']['modality'] = FLAGS.modality
+        session['val_loader']['data']['sequence'] = FLAGS.sequence
+        session['val_loader']['batch_size'] = FLAGS.batch_size
+
+        loader = KITTI( root = session[root_dir],
+                        train_loader  = session['train_loader'],
+                        val_loader    = session['val_loader'],
+                        mode          = memory,
+                        sensor        = sensor_cfg,
+                        debug         = debug,
+                        max_points = 50000)
+
+    elif dataset == 'orchards-uk' :
+        
+        session['val_loader']['data']['modality'] = FLAGS.modality
+        session['val_loader']['data']['sequence'] = FLAGS.sequence
+        session['val_loader']['batch_size'] = FLAGS.batch_size
+
+        loader = ORCHARDS(root    = session[root_dir],
+                            train_loader  = session['train_loader'],
+                            val_loader    = session['val_loader'],
+                            mode          = memory,
+                            sensor        = sensor_cfg,
+                            debug         = debug,
+                            max_points = 30000)
+    
+    
+    elif dataset == 'pointnetvlad':
+        
+        session['val_loader']['data']['modality'] = FLAGS.modality
+        session['val_loader']['data']['sequence'] = FLAGS.sequence
+        session['val_loader']['batch_size'] = FLAGS.batch_size
+
+        loader = POINTNETVLAD(root       = session[root_dir],
+                            train_loader  = session['train_loader'],
+                            val_loader    = session['val_loader'],
+                            mode          = memory,
+                            max_points = 50000
+                            )
+    
+    elif dataset == 'fuberlin':
+        
+        #session['train_loader']['root'] =  session[root_dir]
+        session['val_loader']['anchor']['root'] =  session[root_dir]
+        session['val_loader']['database']['root'] =  session[root_dir]
+        session['val_loader']['batch_size'] = FLAGS.batch_size
+        
+        loader = FUBERLIN(
+                            train_loader  = session['train_loader'],
+                            val_loader    = session['val_loader'],
+                            mode          = memory
+                            )
+        
+        run_name = {'dataset': SESSION['val_loader']['anchor']['sequence']}
+    
+    return(loader,run_name)
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser("./infer.py")
@@ -48,7 +122,15 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='VLAD_resnet50',
+      default='VLAD_pointnet',
+      help='Directory to get the trained model.'
+  )
+  
+  parser.add_argument(
+      '--experiment', '-e',
+      type=str,
+      required=False,
+      default='berlin',
       help='Directory to get the trained model.'
   )
 
@@ -64,7 +146,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/range-rerecord_sparce-VLAD_resnet50-0.81.pth',
+      default='checkpoints/LazyQuadrupletLoss_VLAD_pointnet.pth',
       help='Directory to get the trained model.'
   )
 
@@ -97,7 +179,7 @@ if __name__ == '__main__':
       '--modality',
       type=str,
       required=False,
-      default='range',
+      default='pcl',
       help='Directory to get the trained model.'
   )
 
@@ -105,7 +187,7 @@ if __name__ == '__main__':
       '--session',
       type=str,
       required=False,
-      default='orchard-uk',
+      default='fuberlin',
       help='Directory to get the trained model.'
   )
 
@@ -144,12 +226,12 @@ if __name__ == '__main__':
   print("Opening session config file: %s" % session_cfg_file)
   SESSION = yaml.safe_load(open(session_cfg_file, 'r'))
 
-
+  SESSION['model']['type'] = FLAGS.model
   print("----------")
   print("INTERFACE:")
   print("Root: ", SESSION['root'])
-  print("Dataset  -> Validation: ", SESSION['val_loader']['data']['dataset'])
-  print("Sequence -> Validation: ", SESSION['val_loader']['data']['sequence'])
+  #print("Dataset  -> Validation: ", SESSION['val_loader']['data']['dataset'])
+  #print("Sequence -> Validation: ", SESSION['val_loader']['data']['sequence'])
   print("Memory: ", FLAGS.memory)
   print("Model:  ", FLAGS.model)
   print("Debug:  ", FLAGS.debug)
@@ -158,31 +240,23 @@ if __name__ == '__main__':
   print(f'batch size: {FLAGS.batch_size}')
   print("----------\n")
 
-  SESSION['val_loader']['data']['modality'] = FLAGS.modality
-  SESSION['val_loader']['data']['sequence'] = FLAGS.sequence
-  SESSION['val_loader']['batch_size'] = FLAGS.batch_size
+ 
 
-  orchard_loader = ORCHARDS(root       = SESSION['root'],
-                            val_loader = SESSION['val_loader'],
-                            sensor     = sensor_cfg,
-                            mode       = FLAGS.memory,
-                            debug      = FLAGS.debug)
+  dataloader,run_name = load_dataset(FLAGS.session,SESSION, FLAGS.memory)
                             
   ###################################################################### 
   modality = FLAGS.modality + '_param'
-  model_ = model.ModelWrapper(FLAGS.model, loss=None , device= FLAGS.device,**SESSION[modality])
-
-  run_name = {  'dataset': SESSION['train_loader']['data']['sequence'],
-                'experiment':SESSION['experim_name'], 
-                'model':SESSION['model']['type']
-                }
+  model_ = model.ModelWrapper(**SESSION['model'],loss= [], **SESSION[modality])
+  run_name['model'] = FLAGS.model
+  run_name['experiment'] = FLAGS.experiment
+  
 
   SESSION['retrieval']['top_cand'] = list(range(1,25,1))
   trainer = Trainer(
           model  = model_,
           resume = FLAGS.resume,
           config = SESSION,
-          loader = orchard_loader,
+          loader = dataloader,
           iter_per_epoch = 10, # Verify this!!!
           device = FLAGS.device,
           run_name = run_name
@@ -203,9 +277,19 @@ if __name__ == '__main__':
   df = pd.DataFrame(rows,columns = columns)
   top = rows[0][0]
   score = round(rows[0][1],2)
-  df.to_csv(f'predictions/{dataset}/results/{FLAGS.sequence}{FLAGS.modality}-{FLAGS.model}_{score}@{top}.csv')
+  results_dir = os.path.join('predictions',dataset,'results')
+  if not os.path.isdir(results_dir):
+    os.makedirs(results_dir)
 
-  file_name = os.path.join('predictions',f'{dataset}','descriptors',f'{FLAGS.sequence}-{FLAGS.modality}-{FLAGS.model}_{score}@{top}.npy')
+  file_results = os.path.join(results_dir,f'{FLAGS.sequence}{FLAGS.modality}-{FLAGS.model}_{score}@{top}.csv')
+
+  df.to_csv(file_results)
+
+  descriptors_dir = os.path.join('predictions',f'{dataset}','descriptors')
+  if not os.path.isdir(descriptors_dir):
+    os.makedirs(descriptors_dir)
+
+  file_name = os.path.join(descriptors_dir,f'{FLAGS.sequence}-{FLAGS.modality}-{FLAGS.model}_{score}@{top}.npy')
   torch.save(descriptors,file_name)
 
  

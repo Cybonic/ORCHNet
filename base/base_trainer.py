@@ -118,6 +118,7 @@ class BaseTrainer:
 
     def _get_available_devices(self, n_gpu):
         sys_gpu = torch.cuda.device_count()
+        device = 'cpu'
         if sys_gpu == 0:
             self.logger.warning('No GPUs detected, using the CPU')
             n_gpu = 0
@@ -125,14 +126,14 @@ class BaseTrainer:
             self.logger.warning(f'Nbr of GPU requested is {n_gpu} but only {sys_gpu} are available')
             n_gpu = sys_gpu
         
-        import GPUtil
+            import GPUtil
+            
+            gpu = GPUtil.getAvailable(order = 'first', limit = 1, maxLoad = 0.5, maxMemory = 0.5, includeNan=False, excludeID=[], excludeUUID=[])
+            print(torch.cuda.get_device_name())
+            GPUtil.showUtilization()
+            device = torch.device(f'cuda:{gpu[0]}' if n_gpu > 0 and len(gpu) >0 else 'cpu')
         
-        gpu = GPUtil.getAvailable(order = 'first', limit = 1, maxLoad = 0.5, maxMemory = 0.5, includeNan=False, excludeID=[], excludeUUID=[])
-        print(torch.cuda.get_device_name())
-        GPUtil.showUtilization()
-        device = torch.device(f'cuda:{gpu[0]}' if n_gpu > 0 and len(gpu) >0 else 'cpu')
-        
-        print(f'GPU to be used: {gpu[0]}\n')
+            print(f'GPU to be used: {gpu[0]}\n')
         
         self.logger.info(f'Detected GPUs: {sys_gpu} Requested: {n_gpu}')
         available_gpus = list(range(n_gpu))
@@ -259,7 +260,7 @@ class BaseTrainer:
 
     def _resume_checkpoint(self, resume_path,**argv):
         self.logger.info(f'Loading checkpoint : {resume_path}')
-        checkpoint = torch.load(resume_path)
+        checkpoint = torch.load(resume_path,map_location=torch.device(self.device))
         #self.start_epoch = checkpoint['epoch'] + 1
         try:
             self.not_improved_count = 0

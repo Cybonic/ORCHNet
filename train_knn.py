@@ -35,6 +35,7 @@ from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
 from dataloader.KITTI import KITTI
 from dataloader.POINTNETVLAD import POINTNETVLAD
+from dataloader.FUBERLIN import FUBERLIN
 from mst_trainer import Trainer
 from networks import model
 from utils import loss as losses
@@ -77,10 +78,23 @@ def load_dataset(dataset,session,memory,max_points=50000,debug=False):
                             sensor        = sensor_cfg,
                             debug         = debug,
                             max_points = 30000)
+    
+    
     elif dataset == 'pointnetvlad':
         
         
         loader = POINTNETVLAD(root       = session[root_dir],
+                            train_loader  = session['train_loader'],
+                            val_loader    = session['val_loader'],
+                            mode          = memory,
+                            max_points = 50000
+                            )
+    
+    elif dataset == 'fuberlin':
+        
+        #session['train_loader']['root'] =  session[root_dir]
+        session['val_loader']['root'] =  session[root_dir]
+        loader = FUBERLIN(
                             train_loader  = session['train_loader'],
                             val_loader    = session['val_loader'],
                             mode          = memory,
@@ -104,7 +118,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='AttentionExperiments_skip',
+      default='berlin',
       help='Directory to get the trained model.'
   )
 
@@ -155,7 +169,7 @@ if __name__ == '__main__':
       '--dataset',
       type=str,
       required=False,
-      default='kitti', #
+      default='fuberlin', #
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -211,7 +225,7 @@ if __name__ == '__main__':
   
   torch.cuda.empty_cache()
   torch.autograd.set_detect_anomaly(True)
-  force_cudnn_initialization()
+  #force_cudnn_initialization()
   
 
   # open arch config file
