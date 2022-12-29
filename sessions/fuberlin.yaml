@@ -43,7 +43,7 @@ val_loader:
   database:
       root: ''
       sequence: 'toyexample'
-      name:     'vehicleB'
+      name:     'vehicleA'
       modality: 'pcl'
       max_points: 100000
   memory: 'RAM'
@@ -52,7 +52,7 @@ val_loader:
 
 
 model:
-  type: 'AttVLAD_resnet50'
+  type: 'VLAD_pointnet'
   minibatch_size: 10
   pretrained_backbone: True
   output_dim: 256

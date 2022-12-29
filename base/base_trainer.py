@@ -230,8 +230,7 @@ class BaseTrainer:
         
         for k, v in val_results.items():
             self.logger.info(f'{str(k):15}: {v}')
-        
-        #score = val_results[self.mnt_metric]
+    
         return(val_results,descriptors)
 
     

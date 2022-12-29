@@ -43,7 +43,7 @@ from dataloader.FUBERLIN import FUBERLIN
 from mst_trainer import Trainer
 from networks import model
 
-def load_dataset(dataset,session,memory,max_points=50000,debug=False):
+def load_dataset(inputs,session,max_points=50000,debug=False):
 
     if os.sep == '\\':
         root_dir = 'root_ws'
@@ -51,67 +51,67 @@ def load_dataset(dataset,session,memory,max_points=50000,debug=False):
         root_dir = 'root'
 
 
-    if dataset == 'kitti':
+    if inputs.session == 'kitti':
         
         if debug:
             session['train_loader']['data']['sequence'] = ['00']
             session['val_loader']['data']['sequence'] = ['00']
             print("[Main] Debug mode ON: training and Val on Sequence 00 \n")
 
-        session['val_loader']['data']['modality'] = FLAGS.modality
-        session['val_loader']['data']['sequence'] = FLAGS.sequence
-        session['val_loader']['batch_size'] = FLAGS.batch_size
+        session['val_loader']['data']['modality'] = inputs.modality
+        session['val_loader']['data']['sequence'] = inputs.sequence
+        session['val_loader']['batch_size'] = inputs.batch_size
 
         loader = KITTI( root = session[root_dir],
                         train_loader  = session['train_loader'],
                         val_loader    = session['val_loader'],
-                        mode          = memory,
+                        mode          = inputs.memory,
                         sensor        = sensor_cfg,
                         debug         = debug,
                         max_points = 50000)
 
-    elif dataset == 'orchards-uk' :
+    elif inputs.session == 'orchards-uk' :
         
-        session['val_loader']['data']['modality'] = FLAGS.modality
-        session['val_loader']['data']['sequence'] = FLAGS.sequence
-        session['val_loader']['batch_size'] = FLAGS.batch_size
+        session['val_loader']['data']['modality'] = inputs.modality
+        session['val_loader']['data']['sequence'] = inputs.sequence
+        session['val_loader']['batch_size'] = inputs.batch_size
 
         loader = ORCHARDS(root    = session[root_dir],
                             train_loader  = session['train_loader'],
                             val_loader    = session['val_loader'],
-                            mode          = memory,
+                            mode          = inputs.memory,
                             sensor        = sensor_cfg,
                             debug         = debug,
                             max_points = 30000)
     
     
-    elif dataset == 'pointnetvlad':
+    elif inputs.session == 'pointnetvlad':
         
-        session['val_loader']['data']['modality'] = FLAGS.modality
-        session['val_loader']['data']['sequence'] = FLAGS.sequence
-        session['val_loader']['batch_size'] = FLAGS.batch_size
+        session['val_loader']['data']['modality'] = inputs.modality
+        session['val_loader']['data']['sequence'] = inputs.sequence
+        session['val_loader']['batch_size'] = inputs.batch_size
 
         loader = POINTNETVLAD(root       = session[root_dir],
                             train_loader  = session['train_loader'],
                             val_loader    = session['val_loader'],
-                            mode          = memory,
+                            mode          = inputs.memory,
                             max_points = 50000
                             )
     
-    elif dataset == 'fuberlin':
+    elif inputs.session == 'fuberlin':
         
         #session['train_loader']['root'] =  session[root_dir]
         session['val_loader']['anchor']['root'] =  session[root_dir]
         session['val_loader']['database']['root'] =  session[root_dir]
-        session['val_loader']['batch_size'] = FLAGS.batch_size
+        session['val_loader']['batch_size'] = inputs.batch_size
         
         loader = FUBERLIN(
                             train_loader  = session['train_loader'],
                             val_loader    = session['val_loader'],
-                            mode          = memory
+                            mode          = inputs.memory
                             )
         
-        run_name = {'dataset': SESSION['val_loader']['anchor']['sequence']}
+        run_name = {'dataset': session['val_loader']['anchor']['sequence']}
     
     return(loader,run_name)
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/LazyQuadrupletLoss_VLAD_pointnet.pth',
+      default='checkpoints/[00,02,05,06]_VLAD_pointnet.pth',
       help='Directory to get the trained model.'
   )
 
@@ -195,7 +195,7 @@ if __name__ == '__main__':
       '--sequence',
       type=str,
       required=False,
-      default='rerecord_sparce',
+      default='vehicleB',
       help='Directory to get the trained model.'
   )
 
@@ -242,15 +242,15 @@ if __name__ == '__main__':
 
  
 
-  dataloader,run_name = load_dataset(FLAGS.session,SESSION, FLAGS.memory)
+  dataloader,run_name = load_dataset(FLAGS,SESSION)
                             
   ###################################################################### 
   modality = FLAGS.modality + '_param'
   model_ = model.ModelWrapper(**SESSION['model'],loss= [], **SESSION[modality])
+  
   run_name['model'] = FLAGS.model
   run_name['experiment'] = FLAGS.experiment
   
-
   SESSION['retrieval']['top_cand'] = list(range(1,25,1))
   trainer = Trainer(
           model  = model_,
@@ -265,7 +265,7 @@ if __name__ == '__main__':
 
   results,descriptors = trainer.Eval()
 
-  dataset = SESSION['train_loader']['data']['dataset']
+  dataset =FLAGS.session
   
   columns = ['top','recall']
   values = [v['recall'] for v in list(results.values())]
@@ -277,19 +277,20 @@ if __name__ == '__main__':
   df = pd.DataFrame(rows,columns = columns)
   top = rows[0][0]
   score = round(rows[0][1],2)
-  results_dir = os.path.join('predictions',dataset,'results')
+  
+  results_dir = os.path.join('predictions',dataset,'place','results')
   if not os.path.isdir(results_dir):
     os.makedirs(results_dir)
 
-  file_results = os.path.join(results_dir,f'{FLAGS.sequence}{FLAGS.modality}-{FLAGS.model}_{score}@{top}.csv')
+  file_results = os.path.join(results_dir,f'{FLAGS.modality}-{FLAGS.model}_{score}@{top}.csv')
 
   df.to_csv(file_results)
 
-  descriptors_dir = os.path.join('predictions',f'{dataset}','descriptors')
+  descriptors_dir = os.path.join('predictions',f'{dataset}','place','descriptors')
   if not os.path.isdir(descriptors_dir):
     os.makedirs(descriptors_dir)
 
-  file_name = os.path.join(descriptors_dir,f'{FLAGS.sequence}-{FLAGS.modality}-{FLAGS.model}_{score}@{top}.npy')
+  file_name = os.path.join(descriptors_dir,f'{FLAGS.modality}-{FLAGS.model}_{score}@{top}.npy')
   torch.save(descriptors,file_name)
 
  

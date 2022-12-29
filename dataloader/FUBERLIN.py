@@ -128,7 +128,9 @@ class agent():
         self.sync_pcl_files = self.pcl_files[sync_plc_idx]
 
         if self.verbose:
+            
             print("\nSync Data")
+            print(f"{self.name}")
             print("Pose points = " + f'%4d'%(len(self.pose)) + ' --> ' +  f'%4d'%(len(self.sync_pose)))
             print("PCL  frames = " +  f'%4d'%(len(self.pcl_files)) + ' --> ' +  f'%4d'%(len(self.sync_pcl_files))) 
         
@@ -161,8 +163,10 @@ class FUBerlinDataset():
 
        
         #print(self.anchors)
+        
         self.anchors = agent(**anchor_parm)
         #print(self.anchors)
+        print("Database:")
         self.database = agent(**database_parm)
     
     
@@ -185,8 +189,9 @@ class FUBerlinEval( ):
             ):
 
         self.preprocessing = PREPROCESSING
-
+        print("Anchor:")
         self.anchors = agent(**anchor_parm)
+        print("Database:")
         self.database = agent(**database_parm)
         self.pcl_files_collection = np.concatenate((self.anchors.get_pcl_files(),self.database.get_pcl_files()))
         self.pose_collection = np.concatenate((self.anchors.get_pose(),self.database.get_pose()))
@@ -223,6 +228,12 @@ class FUBerlinEval( ):
     
     def __len__(self):
         return len(self.pcl_collection)
+
+    def get_idx_universe(self):
+        return self.idx_universe
+
+    def get_pose(self):
+        return self.pose_collection
 
     def get_map_idx(self):
         return self.database_idx
