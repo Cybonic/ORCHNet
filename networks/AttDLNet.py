@@ -13,17 +13,17 @@ from .utils import *
 
 class attention_layer(nn.Module):
     """ Self attention Layer"""
-    def __init__(self,in_dim):
+    def __init__(self,in_dim,downscaler=16):
         super(attention_layer,self).__init__()
         self.chanel_in = in_dim
 
-        out_dim = in_dim//16 
+        out_dim = in_dim//downscaler 
     
         self.query_conv = nn.Conv2d(in_channels = in_dim , out_channels = out_dim , kernel_size= 1,dilation=2)
         self.key_conv = nn.Conv2d(in_channels = in_dim , out_channels = out_dim , kernel_size= 1,dilation=2)
         self.value_conv = nn.Conv2d(in_channels = in_dim , out_channels = in_dim , kernel_size= 1,dilation=2)
         # = nn.Conv2d(in_channels = out_dim , out_channels = in_dim , kernel_size= 1)
-        self.upscale = torch.nn.ConvTranspose2d(1,1,3,stride=16)
+        self.upscale = torch.nn.ConvTranspose2d(1,1,3,stride=downscaler)
         self.gamma = nn.Parameter(torch.zeros(1))
 
         self.softmax  = nn.Softmax(dim=1) #
@@ -69,15 +69,15 @@ class attention_layer(nn.Module):
         return out,attention
 
 # Attention 
-
+# To-Do: Convert this into a Multihead attention
 class Attention(nn.Module):
-    def __init__(self,in_dim, n_layers=1,norm_layer=False ):
+    def __init__(self,in_dim,downscaler=16, n_layers=1,norm_layer=False ):
       super(Attention,self).__init__()
 
       in_dim = in_dim
       self.norm = norm_layer
 
-      self.attantion = nn.ModuleList([attention_layer(in_dim) for i in range(n_layers)])
+      self.attantion = nn.ModuleList([attention_layer(in_dim,downscaler) for i in range(n_layers)])
 
       if self.norm == True:
         self.norm_layer = nn.LayerNorm([2048, 4, 64])

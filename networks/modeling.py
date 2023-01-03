@@ -3,9 +3,6 @@ from .backbone import resnet,mobilenetv2,pointnet
 from .AttDLNet import AttVLADHead,VLADHead,AttDLNet
 from .heads.pooling import GeM,SPoC
 from .utils import IntermediateLayerGetter
-from .AttDLNet import Attention
-import torch
-    
 
 def _place_resnet(name, backbone_name, output_dim, output_stride, pretrained_backbone,**argv):
 
@@ -53,6 +50,8 @@ def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
         classifier = GeM()
     elif name.endswith('SPoC'):
         classifier = SPoC()
+    from .AttDLNet import Attention
+    import torch
     
     if name.startswith('Att'):
         classifier = torch.nn.Sequential(
