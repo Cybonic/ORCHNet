@@ -17,7 +17,7 @@ retrieval:
 train_loader:
   data:
     dataset: 'kitti'
-    sequence: ['08'] # ['00','02','05','06']
+    sequence: ['00','02','05','06']
     aug: True
     modality: 'bev'
     pos_range: 10
@@ -99,9 +99,9 @@ trainer:
   results_dir: "/media/tiago/BIG/Orchards/temp/"
 
 optimizer:
-  type: "AdamW" #[RMSprop,Adam,SGD]
+  type: "SGD" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.001
+    lr: 0.0001
     weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 

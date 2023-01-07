@@ -110,7 +110,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'AttVLAD_pointnet',
+      default=  'AttGeM_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='berlin',
+      default='TestSGDOptimizer_32',
       help='Directory to get the trained model.'
   )
 
@@ -169,7 +169,7 @@ if __name__ == '__main__':
       '--dataset',
       type=str,
       required=False,
-      default='fuberlin', #
+      default='kitti', #
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -183,14 +183,14 @@ if __name__ == '__main__':
       '--batch_size',
       type=int,
       required=False,
-      default=9,
+      default=8,
       help='Directory to get the trained model.'
   )
   parser.add_argument(
       '--mini_batch_size',
       type=int,
       required=False,
-      default=10, #  Max size (based on the negatives)
+      default=7, #  Max size (based on the negatives)
       help='Directory to get the trained model.'
   )
   parser.add_argument(

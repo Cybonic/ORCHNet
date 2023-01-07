@@ -122,7 +122,7 @@ class BaseTrainer:
         if sys_gpu == 0:
             self.logger.warning('No GPUs detected, using the CPU')
             n_gpu = 0
-        elif n_gpu > sys_gpu:
+        elif n_gpu < sys_gpu:
             self.logger.warning(f'Nbr of GPU requested is {n_gpu} but only {sys_gpu} are available')
             n_gpu = sys_gpu
         
