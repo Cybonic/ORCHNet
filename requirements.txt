@@ -5,10 +5,9 @@ matplotlib
 scipy
 torch
 vispy
-opencv_python
-opencv_contrib_python
 Pillow
 PyYAML
 datetime
-yaml
 argparse
+torchmetrics
+tensorboard

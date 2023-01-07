@@ -47,7 +47,7 @@ def force_cudnn_initialization():
     dev = torch.device('cuda')
     torch.nn.functional.conv2d(torch.zeros(s, s, s, s, device=dev), torch.zeros(s, s, s, s, device=dev))
 
-def load_dataset(dataset,session,memory,max_points=50000,debug=False):
+def load_dataset(dataset,session,memory,max_points=None,debug=False):
 
     if os.sep == '\\':
         root_dir = 'root_ws'
@@ -57,6 +57,9 @@ def load_dataset(dataset,session,memory,max_points=50000,debug=False):
 
     if dataset == 'kitti':
         
+        if max_points == None:
+            max_points = 50000
+
         if debug:
             session['train_loader']['data']['sequence'] = ['00']
             session['val_loader']['data']['sequence'] = ['00']
@@ -67,8 +70,7 @@ def load_dataset(dataset,session,memory,max_points=50000,debug=False):
                         val_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
-                        debug         = debug,
-                        max_points = 50000)
+                        debug         = debug)
     elif dataset == 'orchards-uk' :
 
         loader = ORCHARDS(root    = session[root_dir],
@@ -144,7 +146,7 @@ if __name__ == '__main__':
       '--memory',
       type=str,
       required=False,
-      default='RAM',
+      default='Disk',
       choices=['Disk','RAM'],
       help='Directory to get the trained model.'
   )
@@ -213,8 +215,14 @@ if __name__ == '__main__':
       type=float,
       required=False,
       default = 0.5,
-      #choices = ['LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
+  )
+  parser.add_argument(
+      '--max_points',
+      type=int,
+      required=False,
+      default = 100000,
+      help='sampling points.'
   )
 
   FLAGS, unparsed = parser.parse_known_args()
@@ -247,15 +255,20 @@ if __name__ == '__main__':
   SESSION['loss']['type'] = FLAGS.loss
   SESSION['loss']['args']['alpha'] = FLAGS.loss_alpha
 
+  SESSION['train_loader']['data']['max_points'] = FLAGS.max_points
+  SESSION['val_loader']['data']['max_points'] = FLAGS.max_points
+
   print("----------")
   print("Root: ", SESSION['root'])
   print("\n======= TRAIN LOADER =======")
   print("Dataset  : ", SESSION['train_loader']['data']['dataset'])
   print("Sequence : ", SESSION['train_loader']['data']['sequence'])
+  print("Max Points: " + str(SESSION['train_loader']['data']['max_points']))
   print("\n======= VAL LOADER =======")
   print("Dataset  : ", SESSION['val_loader']['data']['dataset'])
   print("Sequence : ", SESSION['val_loader']['data']['sequence'])
   print("Batch Size : ", str(SESSION['val_loader']['batch_size']))
+  print("Max Points: " + str(SESSION['val_loader']['data']['max_points']))
   print("\n========== MODEL =========")
   print("Model : ", FLAGS.model)
   print("Resume: ", FLAGS.loss)
@@ -291,6 +304,7 @@ if __name__ == '__main__':
   # Get model parameters based on the modality
   modality = FLAGS.modality + '_param'
   # Load the model
+  SESSION[modality]['max_samples'] = FLAGS.max_points
   model_ = model.ModelWrapper(**SESSION['model'],loss= loss, **SESSION[modality])
   
 

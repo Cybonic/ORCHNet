@@ -145,7 +145,7 @@ class AttDLNet(nn.Module):
     if len(y.shape)<4: # Pointnet returns [batch x feature x samples]
       y = y.unsqueeze(dim=-1)
     
-    y = y.reshape((b,-1,1024)) # <- You have to change this
+    #y = y.reshape((b,-1,1024)) # <- You have to change this
     y_nom= F.normalize(y, p=2.0, dim=1, eps=1e-12, out=None)
       #y = y.transpose(1,3)
     z = self.classifier(y_nom)

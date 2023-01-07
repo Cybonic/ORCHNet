@@ -6,6 +6,8 @@ from utils import helpers
 from utils import logger
 #import utils.lr_scheduler
 import torch.optim.lr_scheduler as lr_scheduler
+import GPUtil
+
 
 def get_instance(module, name, config, *args):
     return getattr(module, config[name]['type'])(*args, **config[name]['args'])
@@ -122,12 +124,9 @@ class BaseTrainer:
         if sys_gpu == 0:
             self.logger.warning('No GPUs detected, using the CPU')
             n_gpu = 0
-        elif n_gpu < sys_gpu:
+        elif n_gpu <= sys_gpu:
             self.logger.warning(f'Nbr of GPU requested is {n_gpu} but only {sys_gpu} are available')
-            n_gpu = sys_gpu
-        
-            import GPUtil
-            
+            n_gpu = sys_gpu            
             gpu = GPUtil.getAvailable(order = 'first', limit = 1, maxLoad = 0.5, maxMemory = 0.5, includeNan=False, excludeID=[], excludeUUID=[])
             print(torch.cuda.get_device_name())
             GPUtil.showUtilization()

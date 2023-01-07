@@ -22,6 +22,7 @@ train_loader:
     modality: 'bev'
     pos_range: 10
     neg_range: 50
+    max_points: 1024
     #ground_truth: 'hard' # Process of generating ground-truth positives and negatives for training;
     # hard -> only the most nearest positive and negative is used;
     # distribution -> a set of positives and negatives are selected; negatives are selected randomly from all the map
@@ -38,6 +39,7 @@ val_loader:
     sequence: ['08']
     modality: 'bev' # ['range',projection,bev]'intensity','density','height','bev']
     pos_range: 25
+    max_point: 1024
   batch_size: 10 #50         # batch size
   workers:  0            # number of threads to get data
   shuffle: False
