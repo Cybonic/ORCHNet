@@ -304,7 +304,7 @@ if __name__ == '__main__':
   # Get model parameters based on the modality
   modality = FLAGS.modality + '_param'
   # Load the model
-  SESSION[modality]['max_samples'] = FLAGS.max_points
+  SESSION[modality]['max_samples'] = FLAGS.max_points # For VLAD one as to define the number of samples
   model_ = model.ModelWrapper(**SESSION['model'],loss= loss, **SESSION[modality])
   
 

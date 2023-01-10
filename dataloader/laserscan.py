@@ -4,23 +4,85 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 import random,math
 
-def random_pcl_subsampling(points,remissions,max_points):
+#def random_pcl_subsampling(points,remissions,max_points):
+#  '''
+#  https://towardsdatascience.com/how-to-automate-lidar-point-cloud-processing-with-python-a027454a536c
+
+#  '''
+#  if not isinstance(points, np.ndarray):
+#    points = np.array(points)
+#  if not isinstance(remissions, np.ndarray):
+#    remissions = np.array(remissions)
+
+#  n_points = points.shape[0]
+
+#  assert n_points>max_points,'Max Points is to big'
+#  sample_idx = np.random.randint(0,n_points,max_points)
+#  sample_idx  =np.sort(sample_idx)
+#  return(points[sample_idx],remissions[sample_idx])
+
+def fps(points, n_samples):
+    """
+    points: [N, 3] array containing the whole point cloud
+    n_samples: samples you want in the sampled point cloud typically << N 
+    """
+    points = np.array(points)
+    
+    # Represent the points by their indices in points
+    points_left = np.arange(len(points)) # [P]
+
+    # Initialise an array for the sampled indices
+    sample_inds = np.zeros(n_samples, dtype='int') # [S]
+
+    # Initialise distances to inf
+    dists = np.ones_like(points_left) * float('inf') # [P]
+
+    # Select a point from points by its index, save it
+    selected = 0
+    sample_inds[0] = points_left[selected]
+
+    # Delete selected 
+    points_left = np.delete(points_left, selected) # [P - 1]
+
+    # Iteratively select points for a maximum of n_samples
+    for i in range(1, n_samples):
+        # Find the distance to the last added point in selected
+        # and all the others
+        last_added = sample_inds[i-1]
+        
+        dist_to_last_added_point = (
+            (points[last_added] - points[points_left])**2).sum(-1) # [P - i]
+
+        # If closer, updated distances
+        dists[points_left] = np.minimum(dist_to_last_added_point, 
+                                        dists[points_left]) # [P - i]
+
+        # We want to pick the one that has the largest nearest neighbour
+        # distance to the sampled points
+        selected = np.argmax(dists[points_left])
+        sample_inds[i] = points_left[selected]
+
+        # Update points_left
+        points_left = np.delete(points_left, selected)
+
+    return sample_inds
+
+def random_subsampling(points,max_points):
   '''
   https://towardsdatascience.com/how-to-automate-lidar-point-cloud-processing-with-python-a027454a536c
 
   '''
   if not isinstance(points, np.ndarray):
     points = np.array(points)
-  if not isinstance(remissions, np.ndarray):
-    remissions = np.array(remissions)
+  #if not isinstance(remissions, np.ndarray):
+    #remissions = np.array(remissions)
 
   n_points = points.shape[0]
 
   assert n_points>max_points,'Max Points is to big'
   sample_idx = np.random.randint(0,n_points,max_points)
   sample_idx  =np.sort(sample_idx)
-  return(points[sample_idx],remissions[sample_idx])
-
+  return(sample_idx)
 
 class LaserScan:
   """Class that contains LaserScan with x,y,z,r"""
@@ -104,7 +166,11 @@ class LaserScan:
       raise TypeError("Remissions should be numpy array")
 
     if self.max_points > 0:  # if max_points == -1 do not subsample
-      points,remissions = random_pcl_subsampling(points,remissions,self.max_points)
+      #idx = random_subsampling(points,self.max_points)
+      idx  = fps(points, self.max_points)
+      points = points[idx,:]
+      remissions = remissions[idx]
+      # points,remissions = random_pcl_subsampling(points,remissions,self.max_points)
 
     # put in attribute
     self.points = points    # get xyz
