@@ -142,6 +142,11 @@ class AttDLNet(nn.Module):
     y = self.backbone(x)
     #y['out'] = torch.flatten(y['out'],start_dim=1)
     y = y['out']
+    
+    if len(y.shape)>3: # CNN-based output
+      b,c,w,h = y.shape
+      y = y.reshape(b,c,-1)
+      
     if len(y.shape)<4: # Pointnet returns [batch x feature x samples]
       y = y.unsqueeze(dim=-1)
     

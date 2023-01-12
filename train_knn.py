@@ -112,7 +112,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'AttGeM_pointnet',
+      default=  'VLAD_resnet50',
       help='Directory to get the trained model.'
   )
 
@@ -163,7 +163,7 @@ if __name__ == '__main__':
       '--modality',
       type=str,
       required=False,
-      default='pcl', # [pcl,bev, projection]
+      default='bev', # [pcl,bev, projection]
       help='Directory to get the trained model.'
   )
 
@@ -221,7 +221,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 100000,
+      default = 50000,
       help='sampling points.'
   )
 

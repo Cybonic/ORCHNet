@@ -4,7 +4,7 @@ from .AttDLNet import AttVLADHead,VLADHead,AttDLNet
 from .heads.pooling import GeM,SPoC
 from .utils import IntermediateLayerGetter
 
-def _place_resnet(name, backbone_name, output_dim, output_stride, pretrained_backbone,**argv):
+def _place_resnet(name, backbone_name, output_dim, output_stride, max_samples,pretrained_backbone,**argv):
 
     if output_stride==8:
         replace_stride_with_dilation=[False, True, True]
@@ -17,13 +17,13 @@ def _place_resnet(name, backbone_name, output_dim, output_stride, pretrained_bac
                                     replace_stride_with_dilation=replace_stride_with_dilation, 
                                     in_channels = in_ch)
     
-    inplanes = 1024
+    inplanes = 256
     return_layers = {'layer4': 'out'}
     # Attention
     if name == 'AttVLAD':
         classifier = AttVLADHead(in_dim=inplanes,out_dim=output_dim,**argv)
     elif name == 'VLAD':
-        classifier = VLADHead(in_dim=inplanes,out_dim=output_dim,**argv)
+        classifier = VLADHead(in_dim=inplanes,out_dim=output_dim,max_samples=2048) # the number of samples are the output of the CNN
     elif name == 'GeM':
         classifier = GeM()
     elif name == 'SPoC':
