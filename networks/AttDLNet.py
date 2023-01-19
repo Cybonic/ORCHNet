@@ -151,12 +151,10 @@ class AttDLNet(nn.Module):
       y = y.unsqueeze(dim=-1)
     
     #y = y.reshape((b,-1,1024)) # <- You have to change this
-    y_nom= F.normalize(y, p=2.0, dim=1, eps=1e-12, out=None)
       #y = y.transpose(1,3)
-    z = self.classifier(y_nom)
-    z_norm= F.normalize(z, p=2.0, dim=1, eps=1e-12, out=None)
+    z = self.classifier(y)
     # output =  z_norm.reshape((b,s,256))
-    return z_norm
+    return z
   
   def get_backbone_params(self):
         return self.backbone.parameters()
