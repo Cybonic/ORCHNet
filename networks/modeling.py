@@ -37,7 +37,7 @@ def _place_resnet(name, backbone_name, output_dim, output_stride, max_samples,pr
 
 def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
     
-    inplanes = 1024
+    inplanes = 64
     
     backbone = pointnet.PointNet_features(dim_k=inplanes,use_tnet=argv['use_tnet'], scale=1)
 
