@@ -47,7 +47,7 @@ def force_cudnn_initialization():
     dev = torch.device('cuda')
     torch.nn.functional.conv2d(torch.zeros(s, s, s, s, device=dev), torch.zeros(s, s, s, s, device=dev))
 
-def load_dataset(dataset,session,memory,max_points=None,debug=False):
+def load_dataset(dataset,session,memory,max_points=None,debug=False,**argv):
 
     if os.sep == '\\':
         root_dir = 'root_ws'
@@ -71,7 +71,7 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         mode          = memory,
                         sensor        = sensor_cfg,
                         debug         = debug,
-                        roi = {'zmin': -4}
+                        **argv
                         )
     elif dataset == 'orchards-uk' :
 
@@ -290,7 +290,7 @@ if __name__ == '__main__':
   np.random.seed(0)
   ###################################################################### 
   # Load Dataset
-  orchard_loader = load_dataset(FLAGS.dataset,SESSION,FLAGS.memory,debug = FLAGS.debug)
+  orchard_loader = load_dataset(FLAGS.dataset,SESSION,FLAGS.memory,debug = FLAGS.debug,roi={'zmin':-2})
   # Get Loss parameters
   loss_type  = SESSION['loss']['type']
   loss_param = SESSION['loss']['args']

@@ -101,9 +101,9 @@ trainer:
   results_dir: "/media/tiago/BIG/Orchards/temp/"
 
 optimizer:
-  type: "SGD" #[RMSprop,Adam,SGD]
+  type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.0001
+    lr: 0.01
     weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 
