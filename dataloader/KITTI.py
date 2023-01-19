@@ -401,6 +401,8 @@ class KITTI():
         self.trainloader = None
         num_subsamples = -1
         debug = False
+        root =  kwargs.pop('root')
+        mode = kwargs.pop('mode')
 
         if 'debug' in kwargs and kwargs['debug'] == True:
             num_subsamples = 100
@@ -411,13 +413,14 @@ class KITTI():
             num_subsamples = kwargs['num_subsamples']
 
         if 'val_loader' in kwargs:
-            val_cfg   = kwargs['val_loader']
+            val_cfg   = kwargs.pop('val_loader')
             
 
-            self.val_loader = KITTIEval(   root =  kwargs['root'],
-                                            mode = kwargs['mode'],
+            self.val_loader = KITTIEval(   root = root,
+                                            mode = mode,
                                             num_subsamples = num_subsamples,
-                                            **val_cfg['data']
+                                            **val_cfg['data'],
+                                            **kwargs
                                             )
 
             self.valloader   = DataLoader(self.val_loader,
@@ -430,10 +433,11 @@ class KITTI():
 
             train_cfg = kwargs['train_loader']
 
-            self.train_loader = KITTITriplet(root =  kwargs['root'],
-                                                mode = kwargs['mode'], 
+            self.train_loader = KITTITriplet(root = root,
+                                                mode = mode, 
                                                 num_subsamples = num_subsamples,
                                                 **train_cfg['data'],
+                                                **kwargs
                                                 )
 
             self.trainloader   = DataLoader(self.train_loader,

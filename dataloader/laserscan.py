@@ -67,6 +67,7 @@ def fps(points, n_samples):
 
     return sample_inds
 
+
 def random_subsampling(points,max_points):
   '''
   https://towardsdatascience.com/how-to-automate-lidar-point-cloud-processing-with-python-a027454a536c
@@ -74,8 +75,6 @@ def random_subsampling(points,max_points):
   '''
   if not isinstance(points, np.ndarray):
     points = np.array(points)
-  #if not isinstance(remissions, np.ndarray):
-    #remissions = np.array(remissions)
 
   n_points = points.shape[0]
 
@@ -95,12 +94,15 @@ class LaserScan:
     self.max_rem = max_rem
     self.max_points = max_points
     self.noise = noise
+    self.set_roi_flag = False
+    if 'roi' in argv:
+      self.set_roi_flag = True
+      self.roi = argv['roi']
 
-  
+
   def reset(self):
     """ Reset scan members. """
     #self.roi  = None 
-
     self.points = np.zeros((0, 3), dtype=np.float32)        # [m, 3]: x, y, z
     self.remissions = np.zeros((0, 1), dtype=np.float32)    # [m ,1]: remission
 
@@ -165,11 +167,7 @@ class LaserScan:
     if remissions is not None and not isinstance(remissions, np.ndarray):
       raise TypeError("Remissions should be numpy array")
 
-    if self.max_points > 0:  # if max_points == -1 do not subsample
-      #idx = random_subsampling(points,self.max_points)
-      idx  = fps(points, self.max_points)
-      points = points[idx,:]
-      remissions = remissions[idx]
+  
       # points,remissions = random_pcl_subsampling(points,remissions,self.max_points)
 
     # put in attribute
@@ -192,7 +190,7 @@ class LaserScan:
       Remissions = Remissions[mask]
     
     if 'xmax' in roi:
-      mask = np.where(PointCloud[:, 0] >= roi["xmax"])
+      mask = np.where(PointCloud[:, 0] <= roi["xmax"])
       PointCloud = PointCloud[mask]
       Remissions = Remissions[mask]
     
@@ -202,19 +200,22 @@ class LaserScan:
       Remissions = Remissions[mask]
     
     if 'ymax' in roi:
-      mask = np.where(PointCloud[:, 1] >= roi["ymax"])
+      mask = np.where(PointCloud[:, 1] <= roi["ymax"])
       PointCloud = PointCloud[mask]
       Remissions = Remissions[mask]
     
     if 'zmin' in roi:
-      mask = np.where(PointCloud[:, 1] >= roi["zmin"])
+      min_z = min(PointCloud[:, 2])
+      max_z = max(PointCloud[:, 2])
+      mask = np.where(PointCloud[:, 2] >= roi["zmin"])
       PointCloud = PointCloud[mask]
       Remissions = Remissions[mask]
     
     if 'zmax' in roi:
-      mask = np.where(PointCloud[:, 1] >= roi["zmax"])
+      mask = np.where(PointCloud[:, 2] <= roi["zmax"])
       PointCloud = PointCloud[mask]
       Remissions = Remissions[mask]
+    
 
     self.points = PointCloud
     self.remissions = Remissions
@@ -224,16 +225,29 @@ class LaserScan:
     
     aug_flag  = False
     norm_flag = False
-      
+    
+    if self.set_roi_flag:
+      #roi = argvs['roi']
+      self.set_roi(self.roi)
+
+    import time
+
+    if self.max_points > 0:  # if max_points == -1 do not subsample
+      start = time.time()
+      #idx = random_subsampling(self.points,self.max_points)
+      idx  = fps(self.points, self.max_points)
+      end = time.time()
+      print(end - start)
+      self.points = self.points[idx,:]
+      self.remissions = self.remissions[idx]
+
     if 'norm' in argvs and argvs['norm'] == True:
       self.set_normalization()
 
     if 'aug' in argvs and argvs['aug'] == True:
       self.set_augmentation()
     
-    if 'roi' in argvs:
-      roi = argvs['roi']
-      self.set_roi(roi)
+   
 
     return self.points.astype(np.float32)
 
