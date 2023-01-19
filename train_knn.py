@@ -71,7 +71,7 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         mode          = memory,
                         sensor        = sensor_cfg,
                         debug         = debug,
-                        roi = {'zmin': -4}
+                        roi = [{'zmin': -1}]
                         )
     elif dataset == 'orchards-uk' :
 
@@ -187,14 +187,14 @@ if __name__ == '__main__':
       '--batch_size',
       type=int,
       required=False,
-      default=8,
+      default=10,
       help='Directory to get the trained model.'
   )
   parser.add_argument(
       '--mini_batch_size',
       type=int,
       required=False,
-      default=7, #  Max size (based on the negatives)
+      default=50, #  Max size (based on the negatives)
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -223,7 +223,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 50000,
+      default = 28000,
       help='sampling points.'
   )
 
