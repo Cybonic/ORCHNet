@@ -70,7 +70,7 @@ def load_dataset(inputs,session,max_points=50000,debug=False):
                         debug         = debug,
                         max_points = 50000)
 
-    elif inputs.session == 'orchards-uk' :
+    elif inputs.session == 'orchard-uk' :
         
         session['val_loader']['data']['modality'] = inputs.modality
         session['val_loader']['data']['sequence'] = inputs.sequence
@@ -83,7 +83,7 @@ def load_dataset(inputs,session,max_points=50000,debug=False):
                             sensor        = sensor_cfg,
                             debug         = debug,
                             max_points = 30000)
-    
+        run_name = {'dataset': ""}
     
     elif inputs.session == 'pointnetvlad':
         
@@ -130,7 +130,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='berlin',
+      default='SamplingOrchardsvSameDataset/P1-N20-NO-TNET_F64/MP-30000/LazyQuadrupletLoss L2/autumn',
       help='Directory to get the trained model.'
   )
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/[00,02,05,06]_VLAD_pointnet.pth',
+      default='checkpoints/FITTING/LazyQuadrupletLoss_L2/autumn/VLAD_pointnet/best_model.pth',
       help='Directory to get the trained model.'
   )
 
@@ -187,7 +187,7 @@ if __name__ == '__main__':
       '--session',
       type=str,
       required=False,
-      default='fuberlin',
+      default='orchard-uk',
       help='Directory to get the trained model.'
   )
 
@@ -195,7 +195,7 @@ if __name__ == '__main__':
       '--sequence',
       type=str,
       required=False,
-      default='vehicleB',
+      default='autumn',
       help='Directory to get the trained model.'
   )
 
@@ -210,8 +210,15 @@ if __name__ == '__main__':
       '--batch_size',
       type=int,
       required=False,
-      default=1,
+      default=10,
       help='Directory to get the trained model.'
+  )
+  parser.add_argument(
+      '--max_points',
+      type=int,
+      required=False,
+      default = 500,
+      help='sampling points.'
   )
 
   FLAGS, unparsed = parser.parse_known_args()
@@ -245,7 +252,11 @@ if __name__ == '__main__':
   dataloader,run_name = load_dataset(FLAGS,SESSION)
                             
   ###################################################################### 
+  SESSION['train_loader']['data']['max_points'] = FLAGS.max_points
+  SESSION['val_loader']['data']['max_points'] = FLAGS.max_points
   modality = FLAGS.modality + '_param'
+
+  SESSION[modality]['max_samples'] = FLAGS.max_points # For VLAD one as to define the number of samples
   model_ = model.ModelWrapper(**SESSION['model'],loss= [], **SESSION[modality])
   
   run_name['model'] = FLAGS.model
