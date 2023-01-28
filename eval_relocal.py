@@ -37,12 +37,14 @@ import random
 from torch.utils.data import DataLoader, random_split
 from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
-from trainer import Trainer
+from mst_trainer import Trainer
 from networks import model
 from utils.utils import generate_descriptors
 from utils.relocalization import relocal_metric,comp_gt_table,sim_relocalize
 from utils.viz import myplot
 from dataloader.utils import load_dataset
+
+
 
 def comp_eval_idx(pred,gt):
     '''
@@ -103,6 +105,7 @@ class relocalization():
         self.pose   = loader.dataset.get_pose()
         self.anchor = loader.dataset.get_anchor_idx()
         self.all_idx = loader.dataset.get_idx_universe()
+        
         self.gt_loop = loader.dataset.get_GT_Map()
         self.device = device
         self.path_to_descriptors = descriptor_path
@@ -184,6 +187,14 @@ if __name__ == '__main__':
       default='VLAD_pointnet',
       help='Directory to get the trained model.'
   )
+  
+  parser.add_argument(
+      '--experiment', '-e',
+      type=str,
+      required=False,
+      default=None,
+      help='Directory to get the trained model.'
+  )
 
   parser.add_argument(
       '--cfg', '-f',
@@ -197,7 +208,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/[00,02,05,06]_VLAD_pointnet.pth',
+      default='checkpoints/FITTING/LazyQuadrupletLoss_L2/autumn/VLAD_pointnet/best_model.pth',
       help='Directory to get the trained model.'
   )
 
@@ -205,7 +216,7 @@ if __name__ == '__main__':
       '--memory',
       type=str,
       required=False,
-      default='Disk',
+      default='RAM',
       choices=['Disk','RAM'],
       help='Directory to get the trained model.'
   )
@@ -218,6 +229,13 @@ if __name__ == '__main__':
       help='Directory to get the trained model.'
   )
 
+  parser.add_argument(
+      '--plot',
+      type=int,
+      required=False,
+      default=1,
+      help='Directory to get the trained model.'
+  )
 
   parser.add_argument(
       '--modality',
@@ -231,38 +249,38 @@ if __name__ == '__main__':
       '--session',
       type=str,
       required=False,
-      default='fuberlin',
+      default='orchard-uk',
       help='Directory to get the trained model.'
   )
-  parser.add_argument(
-      '--device',
-      type=str,
-      required=False,
-      default='cpu',
-      help='Directory to get the trained model.'
-  )
-  parser.add_argument(
-      '--descriptors',
-      type=str,
-      required=False,
-      default = 'vehicleB-pcl-VLAD_pointnet_0.32@1',
-      #default='rerecord_sparce-range-VLAD_resnet50_0.1@1',
-      help='Directory to get the trained model.'
-  )
+
   parser.add_argument(
       '--sequence',
       type=str,
       required=False,
-      default='rerecord_sparce',
+      default='autumn',
       help='Directory to get the trained model.'
   )
-  
+
+  parser.add_argument(
+      '--device',
+      type=str,
+      required=False,
+      default='cuda',
+      help='Directory to get the trained model.'
+  )
   parser.add_argument(
       '--batch_size',
       type=int,
       required=False,
       default=10,
       help='Directory to get the trained model.'
+  )
+  parser.add_argument(
+      '--max_points',
+      type=int,
+      required=False,
+      default = 500,
+      help='sampling points.'
   )
 
   FLAGS, unparsed = parser.parse_known_args()
@@ -293,25 +311,37 @@ if __name__ == '__main__':
   print(f'Device: {FLAGS.device}')
   #print(f'batch size: {FLAGS.batch_size}')
   print(f'Debug: {FLAGS.debug}')
+  print(f'Experiment: {FLAGS.experiment}')
   print("----------\n")
 
-  #SESSION['val_loader']['data']['modality'] = FLAGS.modality
-  #SESSION['val_loader']['data']['dataset'] = FLAGS.dataset
-  #SESSION['val_loader']['data']['sequence'] = FLAGS.sequence
-  #SESSION['val_loader']['batch_size'] = 1
-  
-  #dataset = SESSION['val_loader']['data']['dataset']
+  descriptor_root = f'predictions/{FLAGS.session}/descriptors'
+  if not os.path.isdir(descriptor_root):
+    os.makedirs(descriptor_root)
 
   descriptor_path = None
-  if FLAGS.descriptors != None:
-    descriptor_path = f'predictions/{FLAGS.session}/descriptors/{FLAGS.descriptors}.npy'
+  if FLAGS.experiment != None:
+    descriptor_path = os.path.join(descriptor_root,FLAGS.experiment+'.npy')
     assert os.path.isfile(descriptor_path),'Descriptor File does not exist!'
 
-   ###################################################################### 
-  loader, run_name = load_dataset(FLAGS,SESSION)
+  else:
+    experiment = '-'.join(FLAGS.resume.split(os.sep)[1:-1])
+    descriptor_path = os.path.join(descriptor_root,experiment+'.npy')
 
- 
+   ###################################################################### 
+   # open arch config file
+  cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
+  print("Opening data config file: %s" % cfg_file)
+  sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
+
+  loader, run_name = load_dataset(FLAGS,SESSION,sensor = sensor_cfg)
+
+
+  SESSION['train_loader']['data']['max_points'] = FLAGS.max_points
+  SESSION['val_loader']['data']['max_points'] = FLAGS.max_points
   modality = FLAGS.modality + '_param'
+
+  SESSION[modality]['max_samples'] = FLAGS.max_points # For VLAD one as to define the number of samples
+ 
   model_ = model.ModelWrapper(**SESSION['model'],loss= [], **SESSION[modality])
 
   checkpoint = torch.load(FLAGS.resume,map_location=torch.device(FLAGS.device))
@@ -328,6 +358,9 @@ if __name__ == '__main__':
                 'experiment':SESSION['experim_name'], 
                 'model':SESSION['model']['type']
                 }
+
+
+  
  
  ###################################################################### 
   eval = relocalization(
@@ -338,33 +371,40 @@ if __name__ == '__main__':
 
           )
   
-  sim_thres = 0.3
-  results = eval.relocalize(sim_thres = sim_thres,top_cand = list(range(1,25,1)),burn_in=10)
+  sim_thres = 0.1
+  top_cand = 1
+  results = eval.relocalize(sim_thres = sim_thres,
+                            top_cand = list(range(1,25,1)),
+                            burn_in=60)
   
   columns = ['top','recall','precision']
   rows = [[t,v['recall'],v['precision']] for t,v in results.items()]
   import pandas as pd
 
-  top_cand = 5
+  
   score =  round(results[top_cand]['recall'],3)
-
+  
   df = pd.DataFrame(rows,columns = columns)
 
-  results_dir = os.path.join('predictions',FLAGS.session,'results','reloc')
+  # Build file name for all formats
+  file_name = f'{experiment}-{score}@{top_cand}'
+  # Save relocalization Results
+  results_dir = os.path.join('predictions',FLAGS.session,'results')
   if not os.path.isdir(results_dir):
     os.makedirs(results_dir)
 
-  file_results = os.path.join(results_dir,f'{FLAGS.sequence}-{FLAGS.modality}-{FLAGS.model}-{score}@{top_cand}.csv')
+  
+  file_results = os.path.join(results_dir,'reloc' + file_name + '.csv')
   df.to_csv(file_results)
   
-
+  # save relocalization Gif
   reloc_dir = os.path.join('predictions',FLAGS.session,'reloc')
   if not os.path.isdir(reloc_dir):
     os.makedirs(reloc_dir)
 
-  gif_name = os.path.join(reloc_dir, f'{FLAGS.descriptors}-{score}@{top_cand}.gif')
+  gif_name = os.path.join(reloc_dir,file_name+'.gif')
 
-  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=True, name = gif_name)
+  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=False, name = gif_name)
 
 
   
