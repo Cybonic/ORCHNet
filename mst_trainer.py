@@ -44,6 +44,21 @@ class Trainer(BaseTrainer):
         self.train_metrics = None #StreamSegMetrics(len(labels))
         self.val_metrics = None #StreamSegMetrics(len(labels))
         self.batch_size = 1
+
+        # Eval data
+        try:
+            self.map_idx = self.val_loader.dataset.get_map_idx()
+            self.anchor_idx = self.val_loader.dataset.get_anchor_idx()
+            self.gt_loops = self.val_loader.dataset.get_GT_Map()
+        except: 
+            self.map_idx = self.val_loader.dataset.dataset.get_map_idx()
+            self.anchor_idx = self.val_loader.dataset.dataset.get_anchor_idx()
+            self.gt_loops = self.val_loader.dataset.dataset.get_GT_Map()
+
+
+        self.gt_loops  = self.gt_loops[self.anchor_idx]
+        self.true_loop = np.array([np.where(self.gt_loops[i]==1)[0] for i in range(self.gt_loops.shape[0])])
+
         
 
     def _reset_metrics(self):
@@ -177,15 +192,16 @@ class Trainer(BaseTrainer):
                 return({'recall':-1, 'precision':-1,'F1':-1})
 
         #poses = self.val_loader.dataset.get_pose()
-        map_idx = self.val_loader.dataset.get_map_idx()
-        anchor_idx = self.val_loader.dataset.get_anchor_idx()
+        #map_idx = self.val_loader.dataset.get_map_idx()
+        #anchor_idx = self.val_loader.dataset.get_anchor_idx()
         
-        gt_loops = self.val_loader.dataset.get_GT_Map()[anchor_idx]
-        true_loop = np.array([np.where(gt_loops[i]==1)[0] for i in range(gt_loops.shape[0])])
+        #gt_loops = self.val_loader.dataset.get_GT_Map()[anchor_idx]
+        #true_loop = np.array([np.where(gt_loops[i]==1)[0] for i in range(gt_loops.shape[0])])
 
         # Split Descriptors into Queries and Map
-        query_dptrs = np.array([descriptors[i] for i in anchor_idx])
-        map_dptrs = np.array([descriptors[i] for i in map_idx])
+        descriptor_idx = list(descriptors.keys())
+        query_dptrs = np.array([descriptors[i] for i in self.anchor_idx if i in descriptor_idx ])
+        map_dptrs = np.array([descriptors[i] for i in self.map_idx if i in descriptor_idx ])
         # Retrieve loops 
         max_top = np.max(self.top_cand_retrieval)
         retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = self.eval_metric)
@@ -195,7 +211,7 @@ class Trainer(BaseTrainer):
 
         overall_scores = {}
         for top in self.top_cand_retrieval:
-            scores = retrieve_eval(retrieved_loops,true_loop, top = top)
+            scores = retrieve_eval(retrieved_loops,self.true_loop, top = top)
             overall_scores[top]=scores
         # Post on tensorboard
         for i, score in overall_scores.items():

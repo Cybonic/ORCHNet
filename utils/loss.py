@@ -125,7 +125,7 @@ class LazyTripletLoss():
     self.loss = get_distance_function(metric)
 
   def __str__(self):
-    return type(self).__name__ + ' ' + self.metric
+    return type(self).__name__ + '_' + self.metric
  
   def __call__(self,descriptor = {},**args):
     
@@ -174,7 +174,7 @@ class LazyQuadrupletLoss():
     self.loss = get_distance_function(metric)
   
   def __str__(self):
-    return type(self).__name__ + ' ' + self.metric
+    return type(self).__name__ + '_' + self.metric
 
   def __call__(self,descriptor = {},**args):
     
@@ -248,7 +248,7 @@ class MetricLazyQuadrupletLoss():
     self.loss = get_distance_function(metric)
   
   def __str__(self):
-    return type(self).__name__ + ' ' + self.metric
+    return type(self).__name__ + '_' + self.metric
 
   def __call__(self,descriptor,poses):
     

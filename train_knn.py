@@ -33,9 +33,6 @@ from networks.AttDLNet import *
 from torch.utils.data import DataLoader, random_split
 from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
-from dataloader.KITTI import KITTI
-from dataloader.POINTNETVLAD import POINTNETVLAD
-from dataloader.FUBERLIN import FUBERLIN
 from mst_trainer import Trainer
 from networks import model
 from utils import loss as losses
@@ -55,55 +52,14 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
         root_dir = 'root'
 
 
-    if dataset == 'kitti':
-        
-        if max_points == None:
-            max_points = 50000
-
-        if debug:
-            session['train_loader']['data']['sequence'] = ['00']
-            session['val_loader']['data']['sequence'] = ['00']
-            print("[Main] Debug mode ON: training and Val on Sequence 00 \n")
-
-        loader = KITTI( root = session[root_dir],
+    loader = ORCHARDS(root    = session[root_dir],
                         train_loader  = session['train_loader'],
-                        val_loader    = session['val_loader'],
+                        test_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
-                        debug         = debug,
-                        roi = [{'zmin': -1}]
-                        )
-    elif dataset == 'orchards-uk' :
-
-        loader = ORCHARDS(root    = session[root_dir],
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = memory,
-                            sensor        = sensor_cfg,
-                            debug         = debug,
-                            max_points = 30000)
+                        split_mode    = 'train-test', 
+                        debug         = debug)
     
-    
-    elif dataset == 'pointnetvlad':
-        
-        
-        loader = POINTNETVLAD(root       = session[root_dir],
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = memory,
-                            max_points = 50000
-                            )
-    
-    elif dataset == 'fuberlin':
-        
-        #session['train_loader']['root'] =  session[root_dir]
-        session['val_loader']['root'] =  session[root_dir]
-        loader = FUBERLIN(
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = memory,
-                            max_points = 50000
-                            )
     
     return(loader)
 
@@ -114,7 +70,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default=  'VLAD_pointnet',
+      default='SPoC_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -122,7 +78,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='TestSGDOptimizer_32',
+      default='TestSplitter',
       help='Directory to get the trained model.'
   )
 
@@ -138,7 +94,7 @@ if __name__ == '__main__':
       '--resume', '-r',
       type=str,
       required=False,
-      default='None',
+      default='best_model',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/range-rerecord_sparce-AttVLAD_resnet50-0.87.pth',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/bev-rerecord_sparce-AttVLAD_resnet50-0.54.pth',
       help='Directory to get the trained model.'
@@ -157,7 +113,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=100,
+      default=250,
       help='Directory to get the trained model.'
   )
 
@@ -173,7 +129,7 @@ if __name__ == '__main__':
       '--dataset',
       type=str,
       required=False,
-      default='kitti', #
+      default='orchard-uk', #
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -223,7 +179,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 28000,
+      default = 30000,
       help='sampling points.'
   )
 
@@ -291,6 +247,8 @@ if __name__ == '__main__':
   ###################################################################### 
   # Load Dataset
   orchard_loader = load_dataset(FLAGS.dataset,SESSION,FLAGS.memory,debug = FLAGS.debug)
+  
+  
   # Get Loss parameters
   loss_type  = SESSION['loss']['type']
   loss_param = SESSION['loss']['args']
@@ -298,18 +256,18 @@ if __name__ == '__main__':
   if FLAGS.loss.startswith('LazyTripletplus') or FLAGS.loss.startswith('MetricLazyQuadrupletLoss') or  FLAGS.loss.startswith('MSTMatchLoss'):
     loss_type = FLAGS.loss.split('_')[0]
     loss_param['version'] = FLAGS.loss.split('_')[-1]
-  # Load the loss function
+
   loss = losses.__dict__[loss_type](**loss_param,device = FLAGS.device)
   print("*"*30)
   print(f'Loss: {loss}')
   print("*"*30)
+
   # Get model parameters based on the modality
   modality = FLAGS.modality + '_param'
   # Load the model
   SESSION[modality]['max_samples'] = FLAGS.max_points # For VLAD one as to define the number of samples
   model_ = model.ModelWrapper(**SESSION['model'],loss= loss, **SESSION[modality])
   
-
   run_name = {  'dataset': str(SESSION['train_loader']['data']['sequence']),
                 'experiment':os.path.join(FLAGS.experiment,str(loss)), 
                 'model': FLAGS.model

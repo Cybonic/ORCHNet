@@ -289,16 +289,6 @@ def gen_ground_truth(pose,anchor,pos_thres,neg_thres,num_neg,num_pos):
         all_neg_idx = np.where(query_dist>neg_thres)[0]
         neg_idx = np.random.randint(low=0,high = len(all_neg_idx),size=num_neg)
         tn = all_neg_idx[neg_idx]
-
-            
-            #neg_dists = np.argsort(query_dist[all_neg_idx])
-            #dd = query_dist[all_neg_idx][neg_dists]
-            #neg_idx = neg_dists[:num_neg]
-
-        #elif mode == 'hard':
-        #    tp = [selected_idx[np.argmin(query_dist)]]
-        #    all_neg_idx= np.where(query_dist>neg_thres)[0]
-        #    tn = [selected_idx[all_neg_idx[np.argmin(query_dist[all_neg_idx])]]]
         
         positive.append(tp)
         negative.append(tn)

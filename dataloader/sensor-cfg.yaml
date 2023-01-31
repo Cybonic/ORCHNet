@@ -1,146 +1,11 @@
-oxford:
-  means: []
-  std:   []
-  sensor: "HDL64E"
+
+
+summer:
   roi:
-      xmin: -30
-      xmax:  30
-      ymin: -30
-      ymax:  30
-      zmin: -2.73
-      zmax: 10
-  
-  RP: # HDL-32E  
-    W: 512
-    H: 64
-    max_depth: 30
-    max_rem: 1
-
-  BEV:
-    W: 254
-    H: 254
-
-
-
-
-'00':
-  means: []
-  std:   []
-  sensor: "HDL64E"
-  roi:
-      xmin: -30
-      xmax:  30
-      ymin: -30
-      ymax:  30
-      zmin: -3
-      zmax: 10
-  RP: # HDL-32E  
-    W: 512
-    H: 64
-    max_depth: 30 # max range  80.68
-    max_rem: 0.989 # max remenission   0.989 
-  BEV:
-    W: 254
-    H: 254
-    
-
-'02':
-  means: []
-  std:   []
-  sensor: "HDL64E"
-  roi:
-      xmin: -30
-      xmax:  30
-      ymin: -30
-      ymax:  30
-      zmin: -2.73
-      zmax: 10
-  RP: # HDL-32E  
-    W: 512
-    H: 64
-    max_depth: 30
-    max_rem: 1
-
-  BEV:
-    W: 254
-    H: 254
-
-'05':
-  means: []
-  std:   []
-  sensor: "HDL64E"
-  roi:
-      xmin: -30
-      xmax:  30
-      ymin: -30
-      ymax:  30
-      zmin: -2.73
-      zmax: 10
-
-  RP: # HDL-32E  
-    W: 512
-    H: 64
-    max_depth: 30 # max range  80.68
-    max_rem: 0.989 # max remenission   0.989 
-
-  BEV:
-    W: 254
-    H: 254
-
-'06':
-  means: []
-  std:   []
-  sensor: "HDL64E"
-  roi:
-      xmin: -30
-      xmax:  30
-      ymin: -30
-      ymax:  30
-      zmin: -2.73
-      zmax: 10
-  RP: # HDL-32E  
-    W: 512
-    H: 64
-    max_depth: 30
-    max_rem: 1 
-
-  BEV:
-    W: 254
-    H: 254
-
-'08':
-  means: []
-  std:   []
-  sensor: "HDL64E"
-  roi:
-      xmin: -30
-      xmax:  30
-      ymin: -30
-      ymax:  30
-      zmin: -2.73
-      zmax: 10
-  
-  RP: # HDL-32E  
-    W: 512
-    H: 64
-    max_depth: 30
-    max_rem: 1
-
-  BEV:
-    W: 254
-    H: 254
-
-
-
-rerecord_sparce:
-  means: []
-  std:   []
-  sensor: "HDL32"
-  roi:
-      xmin: -20
-      xmax:  20
-      ymin: -20
-      ymax:  20
+      xmin: -15
+      xmax:  15
+      ymin: -15
+      ymax:  15
       zmin: -1 # Do not change
       zmax: 2 # Do not change
 
@@ -149,12 +14,37 @@ rerecord_sparce:
     H: 32
     max_depth: 30
     max_rem: 1
+    fov_up: 10.67
+    fov_down: -30.67
 
   BEV:
     W: 254
     H: 254
     
-      
+
+autumn:  
+  roi:
+      xmin: -20
+      xmax:  20
+      ymin: -20
+      ymax:  20
+      zmin: -1
+      zmax: 2
+
+  RP: # HDL-32E  
+    fov_up: 4.67
+    fov_down: -5.67
+    W: 512
+    H: 32
+    max_depth: 30
+    max_rem: 1
+
+  BEV:
+    W: 256
+    H: 256
+    
+
+
   
 rerecord_orchard1:
   means: []

@@ -1,96 +1,73 @@
 
-from .ORCHARDS import ORCHARDS, OrchardDataset
-from .KITTI import KITTI,KittiDataset
-from .POINTNETVLAD import POINTNETVLAD
-from .FUBERLIN import FUBERLIN
+
+
 import os
-
-def get_root_system():
-    if os.sep == '\\':
-        root_dir = 'root_ws'
-    else:
-        root_dir = 'root'
-    return(root_dir)
-
-def load_dataset(**argv):
-
-    root_dir = get_root_system()
-
-    root = argv.pop[root_dir]
-    if argv['dataset'] == 'orchard-uk':
-        loader = OrchardDataset(root =root, **argv)
-    else:
-        loader = KittiDataset(root =root,**argv)
-    return(loader)
+import numpy as np
+from tqdm import tqdm
 
 
+def load_indices(file):
+    overlap = []
+    for f in open(file):
+        f = f.split(':')[-1]
+        indices = [int(i) for i in f.split(' ')]
+        overlap.append(indices)
+    return(np.array(overlap[0]))
 
+def parse_overlap_idx(file):
+    idx_array= {}
+    for i,(f )in enumerate(open(file)):
+        str_array = f.rstrip().split('run:')[-1].split(' ')
+        idx = [int(i) for i in str_array]
+        if i == 1:
+            idx_array['ref']=idx
+        else:
+            idx_array['query']=idx
 
-def load_dataset(inputs, session,debug=False):
+    return(idx_array)
 
-    root_dir = get_root_system()
+def parse_triplet_file(file):
+    assert os.path.isfile(file)
+    f = open(file)
+    anchors = []
+    positives = []
+    negatives = []
+    for line in f:
+        value_str = line.rstrip().split('_')
+        anchors.append(int(value_str[0].split(':')[-1]))
+        positives.append(int(value_str[1].split(':')[-1]))
+        negatives.append([int(i) for i in value_str[2].split(':')[-1].split(' ')])
+    f.close()
 
+    anchors   = np.array(anchors,dtype=np.uint32)
+    positives = np.array(positives,dtype=np.uint32)
+    negatives = np.array(negatives,dtype=np.uint32)
 
-    if inputs.session == 'kitti':
-        
-        if debug:
-            session['train_loader']['data']['sequence'] = ['00']
-            session['val_loader']['data']['sequence'] = ['00']
-            print("[Main] Debug mode ON: training and Val on Sequence 00 \n")
+    return anchors,positives,negatives
 
-        session['val_loader']['data']['modality'] = inputs.modality
-        session['val_loader']['data']['sequence'] = inputs.sequence
-        session['val_loader']['batch_size'] = inputs.batch_size
+def load_pose_to_RAM(file):
+    assert os.path.isfile(file)
+    pose_array = []
+    for line in tqdm(open(file), 'Loading to RAM'):
+        values_str = line.split(' ')
+        values = [float(v) for v in values_str]
+        pose_array.append(values[0:3])
+    return(np.array(pose_array))
 
-        loader = KITTI( root = session[root_dir],
-                        train_loader  = session['train_loader'],
-                        val_loader    = session['val_loader'],
-                        mode          = inputs.memory,
-                        sensor        = sensor_cfg,
-                        debug         = debug,
-                        max_points = 50000)
+def load_to_RAM(file):
+    assert os.path.isfile(file)
+    pose_array = []
+    for line in tqdm(open(file), 'Loading to RAM'):
+        values_str = line.split(' ')
+        values = [float(v) for v in values_str]
+        pose_array.append(values[0:3])
+    return(np.array(pose_array))
 
-    elif  inputs.session == 'orchards-uk' :
-        
-        session['val_loader']['data']['modality'] = inputs.modality
-        session['val_loader']['data']['sequence'] = inputs.sequence
-        session['val_loader']['batch_size'] = inputs.batch_size
+def get_files(target_dir):
+    assert os.path.isdir(target_dir)
+    files = np.array([f.split('.')[0] for f in os.listdir(target_dir)])
+    idx = np.argsort(files)
+    fullfiles = np.array([os.path.join(target_dir,f) for f in os.listdir(target_dir)])
 
-        loader = ORCHARDS(root    = session[root_dir],
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = inputs.memory,
-                            sensor        = sensor_cfg,
-                            debug         = debug,
-                            max_points = 30000)
-    
-    
-    elif  inputs.session == 'pointnetvlad':
-        
-        session['val_loader']['data']['modality'] = inputs.modality
-        session['val_loader']['data']['sequence'] = inputs.sequence
-        session['val_loader']['batch_size'] = inputs.batch_size
+    return(files[idx],fullfiles[idx])
 
-        loader = POINTNETVLAD(root       = session[root_dir],
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = inputs.memory,
-                            max_points = 50000
-                            )
-    
-    elif  inputs.session == 'fuberlin':
-        
-        #session['train_loader']['root'] =  session[root_dir]
-        session['val_loader']['anchor']['root'] =  session[root_dir]
-        session['val_loader']['database']['root'] =  session[root_dir]
-        session['val_loader']['batch_size'] = inputs.batch_size
-        
-        loader = FUBERLIN(
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = inputs.memory
-                            )
-        
-        run_name = {'dataset': session['val_loader']['anchor']['sequence']}
-    
-    return(loader,run_name)

@@ -6,7 +6,7 @@ experim_name: 'default'
 ################################################################################
 pretrained_root: 'checkpoints'
 n_gpu: 1
-root: '/home/tiago/Dropbox/research/datasets'
+root: '/home/tiago/Dropbox/research-projects/orchards-uk/dataset'
 
 retrieval:
   top_cand: [1,5]
@@ -14,8 +14,8 @@ retrieval:
 
 train_loader:
   data:
-    dataset: 'orchard-fr'
-    seq: 'ouster'
+    dataset: ''
+    seq: 'winter'
     modality: 'range'
     aug: False 
   fraction: 0.3 
@@ -26,8 +26,8 @@ train_loader:
   
 val_loader:
   data:
-    dataset: 'orchard-fr'
-    seq: 'ouster'
+    dataset: ''
+    seq: 'rerecord_sparce'
     modality: 'range' 
   batch_size: 20         # batch size
   workers:  0            # number of threads to get data

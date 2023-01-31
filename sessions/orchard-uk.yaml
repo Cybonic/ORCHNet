@@ -6,30 +6,37 @@ experim_name: 'default'
 ################################################################################
 pretrained_root: 'checkpoints'
 n_gpu: 1
-root: '/home/tiago/Dropbox/research/datasets'
+root: '/home/tiago/Dropbox/research-projects/orchards-uk/dataset'
 root_ws: "C:\\Users\\Tiago\\TB\\datasets"
 
 retrieval:
-  top_cand: [1,5]
+  top_cand: [1,5,25]
   range_thres: 6
 
 train_loader:
   data:
-    dataset: 'orchard-uk'
-    sequence: 'rerecord_sparce'
-    aug: False
+    dataset: ''
+    sequence: 'autumn'
+    aug: True
     modality: 'range'
+    pos_range: 2
+    neg_range: 3
+    #max_point: 30000
 
   fraction: 0.3 
   batch_size: 1       # batch size
-  shuffle: False
+  shuffle: True
   #rotation: [180,-45,-45]
   
 val_loader:
   data:
-    dataset: 'orchard-uk'
-    sequence: 'rerecord_sparce'
+    dataset: ''
+    sequence: 'autumn'
     modality: 'range' # ['range',projection,bev]'intensity','density','height','bev']
+    #max_point: 30000
+    pos_range: 2
+    max_point: 1024
+
   batch_size: 1 #50         # batch size
   workers:  0            # number of threads to get data
   shuffle: False
@@ -37,25 +44,26 @@ val_loader:
 
 model:
   type: 'AttVLAD_resnet50'
-  minibatch_size: 50
+  minibatch_size: 10
   pretrained_backbone: True
   output_dim: 256
+  use_tnet: False
   #in_channels: 1
 
 bev_param:
   in_channels: 3
   max_samples: 256
-  cluster_size: 20
+  cluster_size: 64
 
 height_param:
   in_channels: 1
   max_samples: 128
-  cluster_size: 20
+  cluster_size: 64
 
 rp_param:
   in_channels: 5
   max_samples: 64
-  cluster_size: 20
+  cluster_size: 64
 
 range_param:
   in_channels: 1
@@ -71,27 +79,28 @@ loss:
   type: 'TripletLoss'
   args:
     margin: 0.5
-    metric: 'kl_divergence' # [L2,Hinge,cosine,kl_divergence]
+    metric: 'L2' # [L2,Hinge,cosine,kl_divergence]
     reduction: 'mean'
 
 
 trainer:
   iter_per_epoch: 1
   epochs: 1000
-  report_val: 3        # every x epochs, report validation set
-  save_period: 3
+  report_val: 1        # every x epochs, report validation set
+  save_period: 1
   log_dir: "saved/"
   save_dir: "checkpoints/"
   monitor: "max recall" # [off, max mIoU]
-  val_per_epochs: 3
+  val_per_epochs: 1
+  eval_metric: 'L2'
   results_dir: "/media/tiago/BIG/Orchards/temp/"
 
 
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.001
-    weight_decay: 0.05
+    lr: 0.01
+    weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 
 StepLR:
