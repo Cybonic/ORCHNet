@@ -368,15 +368,15 @@ class LaserData(LaserScan):
     Intensity = np.nan_to_num(np.copy(remissions))
 
 
-    PointCloud[:, 0] = np.int_(np.floor(PointCloud[:, 0] / discretization_x)  + (Height)/2).clip(min=0,max=Height)
-    PointCloud[:, 1] = np.int_(np.floor(PointCloud[:, 1] / discretization_y) + (Width)/2).clip(min=0,max=Height)
+    PointCloud[:, 0] = np.int_(np.floor(PointCloud[:, 0] / discretization_x)  + (Height)/2).clip(min=0,max=(Height-1))
+    PointCloud[:, 1] = np.int_(np.floor(PointCloud[:, 1] / discretization_y) + (Width)/2).clip(min=0,max=(Width-1))
 
     # sort-3times
     indices = np.lexsort((-PointCloud[:, 2], PointCloud[:, 1], PointCloud[:, 0]))
     PointCloud = PointCloud[indices]
 
     # Height Map
-    heightMap = np.zeros((Height+1, Width+1))
+    heightMap = np.zeros((Height, Width))
 
     _, indices = np.unique(PointCloud[:, 0:2], axis=0, return_index=True)
     PointCloud_frac = PointCloud[indices]
@@ -387,8 +387,8 @@ class LaserData(LaserScan):
     heightMap[xx_idx,yy_idx] = PointCloud_frac[:, 2]
 
     # Intensity Map & DensityMap
-    intensityMap = np.zeros((Height+1, Width+1))
-    densityMap = np.zeros((Height+1, Width+1))
+    intensityMap = np.zeros((Height, Width))
+    densityMap = np.zeros((Height, Width))
 
     _, indices, counts = np.unique(PointCloud[:, 0:2], axis=0, return_index=True, return_counts=True)
     
@@ -546,6 +546,7 @@ class LaserData(LaserScan):
     proj_remission = np.expand_dims(proj_remission,axis=-1)
     proj_idx = np.expand_dims(proj_idx,axis=-1)
     proj_mask = np.expand_dims(proj_mask,axis=-1)
+
 
     return {'range': proj_range, 'xyz': proj_xyz, 'remission': proj_remission,'idx':proj_idx,'mask': proj_mask}
 
