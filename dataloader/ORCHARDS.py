@@ -23,11 +23,15 @@ ASEGMENTS = [   {'xmin':-15,'xmax':-9,'ymin':-50,'ymax':-1 },
 
 
 
-                
+
+
 PREPROCESSING = Tr.Compose([Tr.ToTensor()])
 
 MODALITIES = ['range','projection','remissions','mask']
 
+def subsampler(universe,num_sub_samples):
+        assert  len(universe)>num_sub_samples
+        return np.random.randint(0,len(universe),size=num_sub_samples)
 
 def comp_score_table(target):
     '''
@@ -71,20 +75,6 @@ def get_roi_points(points,roi):
                   (points[:,1]>=roi['ymin']).astype(np.int8) * (points[:,1]<roi['ymax']).astype(np.int8))
     
     return roi_dx.astype(np.bool8)
-
-
-
-def comp_line_gt_table(pose,rois):
-    '''
-    returns a array with same size of poses. with labels of each line
-    '''
-    segments = np.zeros(pose.shape[0],dtype=np.uint8)
-    for i, roi in enumerate(rois):
-        roi_dx = get_roi_points(pose,roi)
-        print(roi_dx.sum())
-        segments[roi_dx] = i 
-    return(segments)
-
 
 
 
@@ -166,6 +156,7 @@ class OrchardDataset():
         assert os.path.isfile(triplet_file), 'Triplet indice file does not exist: ' + triplet_file
         self.anchors, _ , _ = parse_triplet_file(triplet_file)
 
+
     
     def __len__(self):
         return self.pose.shape[0]
@@ -216,6 +207,7 @@ class ORCHARDSEval(OrchardDataset):
         self.modality = modality
         self.mode     = mode
         self.preprocessing = PREPROCESSING
+        self.line_rois = ASEGMENTS
 
         self.num_samples = self.point_cloud_files.shape[0]
         # generate map indicies:ie inidices that do not belong to the anchors/queries
@@ -224,10 +216,7 @@ class ORCHARDSEval(OrchardDataset):
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
         self.gt_table = comp_gt_table(self.poses,self.anchors,argv['pos_range'])
-        self.line_gt_table = comp_line_gt_table(self.pose,ASEGMENTS)
-
-        if num_subsamples > 0:
-            self.set_subsamples(num_subsamples)
+        self.gt_line_loop_table = self.comp_line_loop_table(self.pose)
         
         assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
 
@@ -285,6 +274,17 @@ class ORCHARDSEval(OrchardDataset):
     def get_idx_universe(self):
         return(self.idx_universe)
     
+    def comp_line_loop_table(self,pose):
+        '''
+        returns a array with same size of poses. with labels of each line
+        '''
+        segments = np.zeros(pose.shape[0],dtype=np.uint8)
+        for i, roi in enumerate(self.line_rois):
+            roi_dx = get_roi_points(pose,roi)
+            #print(roi_dx.sum())
+            segments[roi_dx] = i 
+        return(segments)
+    
 
 
 
@@ -301,8 +301,8 @@ class ORCHARDSTriplet(OrchardDataset):
                         aug=False,
                         pos_thres = 2, # Postive range threshold; positive samples  < pos_thres
                         neg_thres = 5, # Range threshold  for negative samples; negative samples > neg_thres 
-                        num_neg = 20 , # Number of negative samples to fetch
-                        num_pos = 1,  # Number of positive samples to fetch
+                        num_neg = 2 , # Number of negative samples to fetch
+                        num_pos = 20,  # Number of positive samples to fetch
                         num_subsamples = 0,
                         **argv):
 
@@ -312,23 +312,67 @@ class ORCHARDSTriplet(OrchardDataset):
         self.aug_flag = aug
         self.mode = mode
         self.eval_mode = False
+        self.line_rois = ASEGMENTS
 
         self.preprocessing = PREPROCESSING
         
         # Triplet data
         self.num_samples = len(self._get_point_cloud_file_())
         self.idx_universe = np.arange(self.num_samples)
-        self.positive , self.negative = gen_ground_truth(self.pose,self.anchors,pos_thres,neg_thres,num_neg,num_pos)
-
         # Eval data
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
         self.gt_table = comp_gt_table(self.poses,self.anchors,pos_thres)
-        self.line_gt_table = comp_line_gt_table(self.pose,ASEGMENTS)
+        self.gt_line_loop_table = self.comp_line_loop_table(self.pose)
 
-        # Load to RAM
+        self.positive , self.negative = self.line_wise_triplet_split(self.gt_line_loop_table,self.anchors,num_neg,num_pos)
+        #self.positive , self.negative = gen_ground_truth(self.pose,self.anchors,pos_thres,neg_thres,num_neg,num_pos)
+
+        if 'subsample' in argv and argv['subsample'] > 0:
+            self.set_subsampler(argv['subsample'])
+
+         # Load to RAM
         if self.mode == 'RAM':
             self.inputs = self.load_RAM()
+
+        
+    def line_wise_triplet_split(self,gt_line_labels,anchors,num_neg,num_pos):
+        classes = np.unique(gt_line_labels)
+        positives =[]
+        negatives = []
+        all_idx = np.arange(len(gt_line_labels))
+        for anchor in anchors:
+            my_line = gt_line_labels[anchor]
+            # Positives
+            all_positives = np.where(gt_line_labels==my_line)[0]
+            positives_idx = all_positives[all_positives!=anchor] # Remove current anchor idx
+            positive_random_idx = np.random.randint(0,len(positives_idx),num_pos)
+            positives.append(positives_idx[positive_random_idx])
+            all_negative_idx  = np.setxor1d(all_idx,positives_idx)
+            neg_random_idx = np.random.randint(0,len(all_negative_idx),num_neg)
+            negatives.append(all_negative_idx[neg_random_idx])
+        
+        return np.array(positives),np.array(negatives)
+
+
+
+
+    def set_subsampler(self,percentage):
+        num_samples = int(len(self.anchors)*percentage)
+        print("Number of samples: " + str(num_samples))
+        subset_idx = subsampler(self.anchors,num_samples)
+        # Select subsets
+        self.anchors =  np.array(self.anchors)[subset_idx]
+        self.positive = np.array(self.positive)[subset_idx]
+        self.negative = np.array(self.negative)[subset_idx]
+        # Filter repeated samples to maintain memory footprint low
+        from utils.utils  import unique2D
+        positive = unique2D(self.positive) 
+        negative = unique2D(self.negative)
+        self.idx_universe =np.unique(np.concatenate((self.anchors,positive,negative)))
+        self.num_samples = len(self.idx_universe)
+
+       
         
     def load_RAM(self):
         img   = {}       
@@ -396,6 +440,18 @@ class ORCHARDSTriplet(OrchardDataset):
     
     def get_GT_Map(self):
         return(self.gt_table)
+    
+    def comp_line_loop_table(self,pose):
+        '''
+        returns a array with same size of poses. with labels of each line
+        '''
+        segments = np.ones(pose.shape[0],dtype=np.int8)*-1
+        for i, roi in enumerate(self.line_rois):
+            roi_dx = get_roi_points(pose,roi)
+            #print(roi_dx.sum())
+            #assert all(segments[roi_dx]==-1) 
+            segments[roi_dx] = i 
+        return(segments)
 
 
 
@@ -413,12 +469,13 @@ class ORCHARDS():
         self.valloader = None
         self.trainloader = None
 
-        assert split_mode in ['cross-val','train-test'], "Split mode not recognized: " + split_mode
+        assert split_mode in ['cross-val','train-test','same'], "Split mode not recognized: " + split_mode
         import copy
 
         train_set = ORCHARDSTriplet(root = kwargs['root'],
                                             mode = kwargs['mode'],
-                                            **train_loader['data']
+                                            **train_loader['data'],
+                                            #subsample = 0.5
                                             )
 
         if split_mode == 'cross-val':
@@ -445,8 +502,8 @@ class ORCHARDS():
             #train_set.dataset.set_eval_mode(False)
         else:
             # Test on the same dataset as trained (Only for debugging)
-            test_set.dataset =  copy.copy(train_set.dataset)
-            test_set.dataset.set_eval_mode(True)
+            test_set =  copy.copy(train_set)
+            test_set.set_eval_mode(True)
         
         #print(test_set.indices)
         #print(train_set.indices)

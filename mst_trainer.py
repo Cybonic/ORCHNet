@@ -50,11 +50,19 @@ class Trainer(BaseTrainer):
             self.map_idx = self.val_loader.dataset.get_map_idx()
             self.anchor_idx = self.val_loader.dataset.get_anchor_idx()
             self.gt_loops = self.val_loader.dataset.get_GT_Map()
+            self.poses = self.val_loader.dataset.get_pose()
+            self.comp_line_loop_table = self.val_loader.dataset.comp_line_loop_table
+            self.gt_line_loops = self.val_loader.dataset.gt_line_loop_table
+            
         except: 
             self.map_idx = self.val_loader.dataset.dataset.get_map_idx()
             self.anchor_idx = self.val_loader.dataset.dataset.get_anchor_idx()
             self.gt_loops = self.val_loader.dataset.dataset.get_GT_Map()
+            self.poses = self.val_loader.dataset.dataset.get_pose()
+            self.comp_line_loop_table = self.val_loader.dataset.dataset.comp_line_loop_table
+            self.gt_line_loops = self.val_loader.dataset.dataset.gt_line_loop_table
 
+        self.gt_line_loops = np.array([[value] for value in self.gt_line_loops ])
 
         self.gt_loops  = self.gt_loops[self.anchor_idx]
         self.true_loop = np.array([np.where(self.gt_loops[i]==1)[0] for i in range(self.gt_loops.shape[0])])
@@ -191,12 +199,45 @@ class Trainer(BaseTrainer):
             if np.isnan(np.array(t)).any():
                 return({'recall':-1, 'precision':-1,'F1':-1})
 
-        #poses = self.val_loader.dataset.get_pose()
-        #map_idx = self.val_loader.dataset.get_map_idx()
-        #anchor_idx = self.val_loader.dataset.get_anchor_idx()
+        # Split Descriptors into Queries and Map
+        descriptor_idx = list(descriptors.keys())
+        query_dptrs = np.array([descriptors[i] for i in self.anchor_idx if i in descriptor_idx ])
+        map_dptrs = np.array([descriptors[i] for i in self.map_idx if i in descriptor_idx ])
+        # Retrieve loops 
+        max_top = np.max(self.top_cand_retrieval)
+        retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = self.eval_metric)
         
-        #gt_loops = self.val_loader.dataset.get_GT_Map()[anchor_idx]
-        #true_loop = np.array([np.where(gt_loops[i]==1)[0] for i in range(gt_loops.shape[0])])
+        pred_line_loops = []
+        for line in retrieved_loops:
+            line_loops = self.comp_line_loop_table(self.poses[line,:])
+            pred_line_loops.append(line_loops)
+        
+        pred_line_loops = np.array(pred_line_loops)
+        # Evaluate retrieval
+        from utils.metric import retrieve_eval
+
+        overall_scores = {}
+        for top in self.top_cand_retrieval:
+            scores = retrieve_eval(pred_line_loops,self.gt_line_loops, top = top)
+            overall_scores[top]=scores
+        # Post on tensorboard
+        for i, score in overall_scores.items():
+            self._write_scalars_tb(f'val@{i}',score,epoch)
+        return overall_scores,descriptors
+
+
+    def _multiscale_valid_epoch(self, epoch):
+        #self.html_results.save()
+        self.logger.info('\n')
+        self.model.eval()
+        
+        # Generate  Descriptors
+        descriptors = self.generate_descriptors(self.model,self.val_loader)
+
+        # If descriptors contain 'Nans' exit
+        for  v,t in descriptors.items(): 
+            if np.isnan(np.array(t)).any():
+                return({'recall':-1, 'precision':-1,'F1':-1})
 
         # Split Descriptors into Queries and Map
         descriptor_idx = list(descriptors.keys())
@@ -217,7 +258,6 @@ class Trainer(BaseTrainer):
         for i, score in overall_scores.items():
             self._write_scalars_tb(f'val@{i}',score,epoch)
         return overall_scores,descriptors
-
 # ===================================================================================================================
 #    
 # ===================================================================================================================

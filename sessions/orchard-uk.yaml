@@ -17,10 +17,10 @@ train_loader:
   data:
     dataset: ''
     sequence: 'autumn'
-    aug: True
+    aug: False
     modality: 'range'
-    pos_range: 2
-    neg_range: 3
+    pos_range: 5
+    neg_range: 20
     #max_point: 30000
 
   fraction: 0.3 
@@ -99,7 +99,7 @@ trainer:
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.01
+    lr: 0.0001
     weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 

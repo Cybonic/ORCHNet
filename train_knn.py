@@ -57,8 +57,8 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         test_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
-                        split_mode    = 'train-test', 
-                        debug         = debug)
+                        split_mode    = 'same', 
+                        subsample     = 0.5)
     
     
     return(loader)
@@ -70,7 +70,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='SPoC_pointnet',
+      default='VLAD_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -78,7 +78,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='TestSplitter',
+      default='LineTriplet_split',
       help='Directory to get the trained model.'
   )
 
@@ -94,7 +94,7 @@ if __name__ == '__main__':
       '--resume', '-r',
       type=str,
       required=False,
-      default='best_model',
+      default='None',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/range-rerecord_sparce-AttVLAD_resnet50-0.87.pth',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/bev-rerecord_sparce-AttVLAD_resnet50-0.54.pth',
       help='Directory to get the trained model.'
@@ -113,7 +113,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=250,
+      default=50,
       help='Directory to get the trained model.'
   )
 
@@ -164,7 +164,7 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'LazyQuadrupletLoss',
+      default = 'MeanLazyQuadrupletLoss',
       #choices = ['MetricLazyQuadrupletLoss','LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
@@ -179,7 +179,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 30000,
+      default = 20000,
       help='sampling points.'
   )
 
