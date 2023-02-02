@@ -293,7 +293,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 1000,
+      default = 20000,
       help='sampling points.'
   )
   parser.add_argument(

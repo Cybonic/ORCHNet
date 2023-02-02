@@ -19,10 +19,17 @@ train_loader:
     sequence: 'autumn'
     aug: False
     modality: 'range'
-    pos_range: 5
-    neg_range: 20
     max_points: 30000
-
+  
+  ground_truth: 
+    pos_range: 5 # Loop Threshold [m]
+    neg_range: 10
+    num_neg: 20
+    num_pos: 1
+    warmupitrs: 600 # Number of frames to ignore at the beguinning
+    roi: 500 
+    #pos_range: 5
+    #neg_range: 20
   fraction: 0.3 
   batch_size: 1       # batch size
   shuffle: True
@@ -33,9 +40,15 @@ val_loader:
     dataset: ''
     sequence: 'autumn'
     modality: 'range' # ['range',projection,bev]'intensity','density','height','bev']
-    #max_point: 30000
-    pos_range: 2
-    max_points: 1024
+    max_points: 30000
+
+  ground_truth: 
+    pos_range: 5 # Loop Threshold [m]
+    neg_range: 10
+    num_neg: 0
+    num_pos: 25
+    warmupitrs: 600 # Number of frames to ignore at the beguinning
+    roi: 500 
 
   batch_size: 1 #50         # batch size
   workers:  0            # number of threads to get data

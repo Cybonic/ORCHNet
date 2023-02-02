@@ -49,23 +49,23 @@ class Trainer(BaseTrainer):
         try:
             self.map_idx = self.val_loader.dataset.get_map_idx()
             self.anchor_idx = self.val_loader.dataset.get_anchor_idx()
-            self.gt_loops = self.val_loader.dataset.get_GT_Map()
+            self.table = self.val_loader.dataset.get_GT_Map()
             self.poses = self.val_loader.dataset.get_pose()
-            self.comp_line_loop_table = self.val_loader.dataset.comp_line_loop_table
+            #self.comp_line_loop_table = self.val_loader.dataset.comp_line_loop_table
             #self.gt_line_loops = self.val_loader.dataset.gt_loop_table
             
         except: 
             self.map_idx = self.val_loader.dataset.dataset.get_map_idx()
             self.anchor_idx = self.val_loader.dataset.dataset.get_anchor_idx()
-            self.gt_loops = self.val_loader.dataset.dataset.get_GT_Map()
+            self.table = self.val_loader.dataset.dataset.get_GT_Map()
             self.poses = self.val_loader.dataset.dataset.get_pose()
-            self.comp_line_loop_table = self.val_loader.dataset.dataset.comp_line_loop_table
-            self.gt_line_loops = self.val_loader.dataset.dataset.gt_line_loop_table
+            #self.comp_line_loop_table = self.val_loader.dataset.dataset.comp_line_loop_table
+            #self.gt_line_loops = self.val_loader.dataset.dataset.gt_line_loop_table
 
         #self.gt_line_loops = np.array([[value] for value in self.gt_line_loops ])
 
-        self.gt_loops  = self.gt_loops[self.anchor_idx]
-        self.true_loop = np.array([np.where(self.gt_loops[i]==1)[0] for i in range(self.gt_loops.shape[0])])
+        #self.gt_loops  = self.gt_loops[self.anchor_idx]
+        self.true_loop = np.array([np.where(line==1)[0] for line in self.table])
 
         
 
@@ -199,7 +199,7 @@ class Trainer(BaseTrainer):
         
         self.model.eval()
         
-        self.true_loop_idx = np.array([np.where(self.gt_loops[i]==1)[0] for i in range(self.gt_loops.shape[0])])
+        #self.true_loop_idx = np.array([np.where(self.gt_loops[i]==1)[0] for i in range(self.gt_loops.shape[0])])
         
         descriptors = self.generate_descriptors(self.model,self.val_loader)
    
@@ -215,7 +215,7 @@ class Trainer(BaseTrainer):
 
         for top in top_cand:
             top_cand_hat = _get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thres,top=top)
-            scores = relocal_metric(top_cand_hat,self.true_loop_idx)
+            scores = relocal_metric(top_cand_hat,self.true_loop)
             overall_scores[top] = scores
             print(scores)
         

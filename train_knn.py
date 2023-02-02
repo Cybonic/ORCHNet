@@ -57,7 +57,7 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         test_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
-                        split_mode    = 'same', 
+                        split_mode    = 'cross-val', 
                         #subsample     = 0.5
                         )
     
@@ -180,7 +180,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 1000,
+      default = 10000,
       help='sampling points.'
   )
 

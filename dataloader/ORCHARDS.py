@@ -51,23 +51,67 @@ def comp_score_table(target):
 
 
 
-def comp_gt_table(pose,anchors,pos_thres):
-    '''
+def gen_ground_truth(   poses, 
+                        pos_range= 0.05, # Loop Threshold [m]
+                        neg_range=10,
+                        num_neg = 10,
+                        num_pos = 10,
+                        warmupitrs= 10, # Number of frames to ignore at the beguinning
+                        roi       = 5 # Window):
+                    ):
+
+    indices = np.array(range(poses.shape[0]-1))
+    loop_labels = np.zeros(poses.shape[0],dtype=int)
     
-    '''
-    table  = comp_score_table(pose)
-    num_pose = pose.shape[0]
-    gt_table = np.zeros((num_pose,num_pose),dtype=np.uint8)
-    all_idx  = np.arange(table.shape[0])
-    idx_wout_anchors = np.setxor1d(all_idx,anchors) # map idx: ie all idx excep anchors
 
-    for anchor in anchors:
-        anchor_dist = table[anchor]
-        all_pos_idx = np.where(anchor_dist < pos_thres)[0] # Get all idx on the map that form a loop (ie dist < thresh)
-        tp = np.intersect1d(idx_wout_anchors,all_pos_idx).astype(np.uint32) # Remove those indices that belong to the anchor set
-        gt_table[anchor,tp] = 1 # populate the table with the true positives
+    ROI = indices[warmupitrs:]
+    anchor =   []
+    positive = []
+    select_pos_idx = np.arange(num_pos)
+    for i in ROI:
+    
+        _map_   = poses[:i,:]
+        pose    = poses[i,:].reshape((1,2))
+        map_frame_idx  = indices[:i]
+        
+        dist_meter = np.linalg.norm(pose-_map_,axis=1)
 
-    return(gt_table)
+        #dist= np.sqrt((pose[0]-_map_[:,0])**2 + (pose[1]-_map_[:,1])**2)
+        dist = dist_meter/ np.max(dist_meter)
+
+        frame_dist = np.linalg.norm(i-map_frame_idx)
+        #frame_dist= np.sqrt((i-map_frame_idx)**2 + (i-map_frame_idx)**2)
+        frame_dist /= np.max(frame_dist)
+
+        alpha = dist/frame_dist
+        # Sort distance and get smallest  outside ROI 
+        sort_=np.argsort(alpha[:i-roi])
+        pos_sort_ = sort_[select_pos_idx]
+        pos_idx = np.where(dist_meter[pos_sort_] < pos_range)[0]
+
+        #neg_idx = np.where(dist_meter > pos_range)[0]
+        #neg_idx = np.setxor1d(neg_idx,pos_idx)
+        if  len(pos_idx)>0:
+            anchor.append(i)
+            positive.append(sort_[pos_idx])
+        else: 
+            sort_=-1
+    
+    # Negatives
+    negatives= []
+    neg_idx = np.arange(num_neg)   
+    for a, pos in zip(anchor,positive):
+        pa = poses[a,:].reshape((1,2))
+        dist_meter = np.linalg.norm(pa-poses,axis=1)
+        neg_idx = np.where(dist_meter > neg_range)[0]
+        neg_idx = np.setxor1d(neg_idx,pos)
+        select_neg = np.random.randint(0,len(neg_idx),num_neg)
+        neg_idx = neg_idx[select_neg]
+        negatives.append(neg_idx)
+
+    return(anchor,positive,negatives)
+
+
 
 
 def get_roi_points(points,roi):
@@ -75,7 +119,6 @@ def get_roi_points(points,roi):
                   (points[:,1]>=roi['ymin']).astype(np.int8) * (points[:,1]<roi['ymax']).astype(np.int8))
     
     return roi_dx.astype(np.bool8)
-
 
 
 def get_point_cloud_files(dir):
@@ -103,7 +146,14 @@ class parser():
 # ========================================================================================================
 
 class OrchardDataset():
-    def __init__(self,root,dataset,seq,sync = True , modality='pcl' ,**argv):
+    def __init__(self,root,dataset,seq,sync = True , modality='pcl' ,
+                    ground_truth = { 'pos_range':4, # Loop Threshold [m]
+                                     'neg_range': 10,
+                                     'num_neg':20,
+                                     'num_pos':1,
+                                     'warmupitrs': 600, # Number of frames to ignore at the beguinning
+                                     'roi':500},
+                        **argv):
         self.modality = modality
 
         # Load dataset and laser settings
@@ -152,9 +202,15 @@ class OrchardDataset():
             self.pose =  self.pose[sync_pose_idx]
         
         # Load indicies to split the dataset in queries, positive and map 
-        triplet_file = os.path.join(self.target_dir,'sync_triplets.txt')
-        assert os.path.isfile(triplet_file), 'Triplet indice file does not exist: ' + triplet_file
-        self.anchors, _ , _ = parse_triplet_file(triplet_file)
+        #triplet_file = os.path.join(self.target_dir,'sync_triplets.txt')
+        #assert os.path.isfile(triplet_file), 'Triplet indice file does not exist: ' + triplet_file
+        #self.anchors, _ , _ = parse_triplet_file(triplet_file)
+        self.anchors,self.positives,self.negatives = gen_ground_truth(self.pose,**ground_truth)
+
+        n_points = self.pose.shape[0]
+        self.table = np.zeros((n_points,n_points))
+        for a,p in zip(self.anchors,self.positives):
+            self.table[a,p]=1
 
 
     def __len__(self):
@@ -197,7 +253,6 @@ class OrchardDataset():
 class ORCHARDSEval(OrchardDataset):
     def __init__(self,root, dataset, sequence, sync = True,   # Projection param and sensor
                 modality = 'range' , 
-                num_subsamples = -1,
                 mode = 'Disk', 
                 **argv
                 ):
@@ -214,25 +269,33 @@ class ORCHARDSEval(OrchardDataset):
 
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
-        self.gt_table = comp_gt_table(self.poses,self.anchors,argv['pos_range'])
-        self.gt_line_loop_table = self.comp_line_loop_table(self.pose)
+        #self.anchors,self.positives,_ = gen_ground_truth(self.poses,argv['pos_thres'], warmupitrs=600, roi=500)
+        # self.gt_line_loop_table = self.comp_line_loop_table(self.pose)
+        #n_points = self.poses.shape[0]
         
+        #self.table = np.zeros((n_points,n_points))
+        #for a,p in zip(self.anchors,self.positives):
+        #    self.table[a,p]=1
+
         assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
 
         if self.mode == 'RAM':
             self.inputs = self.load_RAM()
 
-    def compt_gt_table(self,anchor,positive,num_samples):
-        gt_mapping = np.zeros((len(anchor),num_samples),np.uint8)
-        for i,p in enumerate(positive):
-            gt_mapping[i,p]=1
-        return(gt_mapping)
 
     def get_GT_Map(self):
-        return(self.gt_table)
+        return(self.table)
     
-    def _get_representation_(self,idx):
-        data,_ = self._get_modality_(idx,self.modality)
+    def get_eval_data(self,index):
+        global_index = self.idx_universe[index] # Only useful when subsampler is on
+        
+        if self.mode == 'RAM':
+            data = self.inputs[global_index]         
+        elif self.mode == 'Disk':
+            data = self._get_modality_(global_index)
+        
+        plc = self.preprocessing(data)
+        return(plc,global_index)
         return data
 
     def load_RAM(self):
@@ -242,19 +305,9 @@ class ORCHARDSEval(OrchardDataset):
             img[i]=data#.astype(np.uint8)
         return img
 
-    def get_data(self,index):
-        global_index = self.idx_universe[index] # Only useful when subsampler is on
-        
-        if self.mode == 'RAM':
-            data = self.inputs[global_index]         
-        elif self.mode == 'Disk':
-            data = self._get_representation_(global_index)
-        
-        plc = self.preprocessing(data)
-        return(plc,global_index)
 
     def __getitem__(self,index):
-        pcl,gindex = self.get_data(index)
+        pcl,gindex = self.get_eval_data(index)
         return(pcl,gindex)
 
     def __len__(self):
@@ -298,10 +351,6 @@ class ORCHARDSTriplet(OrchardDataset):
                         mode='Disk', 
                         modality = 'projection', 
                         aug=False,
-                        pos_thres = 2, # Postive range threshold; positive samples  < pos_thres
-                        neg_thres = 5, # Range threshold  for negative samples; negative samples > neg_thres 
-                        num_neg = 20 , # Number of negative samples to fetch
-                        num_pos = 1,  # Number of positive samples to fetch
                         num_subsamples = 0,
                         **argv):
 
@@ -315,13 +364,7 @@ class ORCHARDSTriplet(OrchardDataset):
 
         self.preprocessing = PREPROCESSING
         verbose = True
-        
-        if verbose:
-            print("Dataset: " + sequence)
-            print('pos_thres: ' + str(pos_thres))
-            print('neg_thres: ' + str(neg_thres))
-            print('num_neg: ' + str(num_neg))
-            print('num_pos: ' + str(num_pos))
+    
 
         # Triplet data
         self.num_samples = len(self._get_point_cloud_file_())
@@ -329,11 +372,15 @@ class ORCHARDSTriplet(OrchardDataset):
         # Eval data
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
-        self.gt_loop_table = comp_gt_table(self.poses,self.anchors,pos_thres)
+        #self.anchors,self.positives,self.negatives = gen_ground_truth(self.poses,pos_thres, neg_thres,num_neg,num_pos, warmupitrs=600, roi=500)
         #self.gt_loop_table = self.comp_line_loop_table(self.pose)
+        #n_points = self.poses.shape[0]
+        #self.table = np.zeros((n_points,n_points))
+        #for a,p in zip(self.anchors,self.positives):
+        #    self.table[a,p]=1
 
         # self.positive , self.negative = self.line_wise_triplet_split(self.gt_line_loop_table,self.anchors,num_neg,num_pos)
-        self.positive , self.negative = gen_ground_truth(self.pose,self.anchors,pos_thres,neg_thres,num_neg,num_pos)
+        #self.negative = gen_ground_truth(self.pose,self.anchors,pos_thres,neg_thres,num_neg,num_pos)
 
         if 'subsample' in argv and argv['subsample'] > 0:
             self.set_subsampler(argv['subsample'])
@@ -400,7 +447,7 @@ class ORCHARDSTriplet(OrchardDataset):
         return(plc,global_index)
 
     def get_triplet_data(self,index):
-        an_idx,pos_idx,neg_idx  = self.anchors[index],self.positive[index], self.negative[index]
+        an_idx,pos_idx,neg_idx  = self.anchors[index],self.positives[index], self.negatives[index]
         if self.mode == 'RAM':     
             # point clouds are already converted to the input representation, is only required to 
             #  convert to tensor 
@@ -450,7 +497,7 @@ class ORCHARDSTriplet(OrchardDataset):
         return(self.idx_universe)
     
     def get_GT_Map(self):
-        return(self.gt_loop_table)
+        return(self.table)
     
     def comp_line_loop_table(self,pose):
         '''
@@ -482,21 +529,24 @@ class ORCHARDS():
 
         assert split_mode in ['cross-val','train-test','same'], "Split mode not recognized: " + split_mode
         import copy
-
+        test_set = None
         train_set = ORCHARDSTriplet(root = kwargs['root'],
                                             mode = kwargs['mode'],
                                             **train_loader['data'],
+                                            ground_truth = train_loader['ground_truth']
                                             #subsample = 0.5
                                             )
 
         if split_mode == 'cross-val':
             # Cross-validation. Train and test sets are from different sequences
-            if 'val_loader' in kwargs:
+            
                
-                test_set = ORCHARDSEval( root =  kwargs['root'],
+            test_set = ORCHARDSEval( root =  kwargs['root'],
                                                 mode = kwargs['mode'],
                                                 #num_subsamples = num_subsamples,
-                                                **test_loader['data'])
+                                                **test_loader['data'],
+                                                ground_truth = test_loader['ground_truth']
+                                                )
 
         elif  split_mode == 'train-test':
             # train-test: train and test sets are from the same sequences, which is split randomly in two.
