@@ -157,7 +157,6 @@ class OrchardDataset():
         self.anchors, _ , _ = parse_triplet_file(triplet_file)
 
 
-    
     def __len__(self):
         return self.pose.shape[0]
 
@@ -301,8 +300,8 @@ class ORCHARDSTriplet(OrchardDataset):
                         aug=False,
                         pos_thres = 2, # Postive range threshold; positive samples  < pos_thres
                         neg_thres = 5, # Range threshold  for negative samples; negative samples > neg_thres 
-                        num_neg = 2 , # Number of negative samples to fetch
-                        num_pos = 20,  # Number of positive samples to fetch
+                        num_neg = 20 , # Number of negative samples to fetch
+                        num_pos = 1,  # Number of positive samples to fetch
                         num_subsamples = 0,
                         **argv):
 
@@ -315,18 +314,26 @@ class ORCHARDSTriplet(OrchardDataset):
         self.line_rois = ASEGMENTS
 
         self.preprocessing = PREPROCESSING
+        verbose = True
         
+        if verbose:
+            print("Dataset: " + sequence)
+            print('pos_thres: ' + str(pos_thres))
+            print('neg_thres: ' + str(neg_thres))
+            print('num_neg: ' + str(num_neg))
+            print('num_pos: ' + str(num_pos))
+
         # Triplet data
         self.num_samples = len(self._get_point_cloud_file_())
         self.idx_universe = np.arange(self.num_samples)
         # Eval data
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
-        self.gt_table = comp_gt_table(self.poses,self.anchors,pos_thres)
-        self.gt_line_loop_table = self.comp_line_loop_table(self.pose)
+        self.gt_loop_table = comp_gt_table(self.poses,self.anchors,pos_thres)
+        #self.gt_loop_table = self.comp_line_loop_table(self.pose)
 
-        self.positive , self.negative = self.line_wise_triplet_split(self.gt_line_loop_table,self.anchors,num_neg,num_pos)
-        #self.positive , self.negative = gen_ground_truth(self.pose,self.anchors,pos_thres,neg_thres,num_neg,num_pos)
+        # self.positive , self.negative = self.line_wise_triplet_split(self.gt_line_loop_table,self.anchors,num_neg,num_pos)
+        self.positive , self.negative = gen_ground_truth(self.pose,self.anchors,pos_thres,neg_thres,num_neg,num_pos)
 
         if 'subsample' in argv and argv['subsample'] > 0:
             self.set_subsampler(argv['subsample'])
@@ -424,7 +431,11 @@ class ORCHARDSTriplet(OrchardDataset):
         return(pcl,indx)
     
     def __len__(self):
-        return(len(self.anchors))
+        if not self.eval_mode:
+            num_sample = len(self.anchors)
+        else:
+            num_sample = len(self.idx_universe)
+        return(num_sample)
     
     def get_pose(self):
         return self._get_pose_()
@@ -439,7 +450,7 @@ class ORCHARDSTriplet(OrchardDataset):
         return(self.idx_universe)
     
     def get_GT_Map(self):
-        return(self.gt_table)
+        return(self.gt_loop_table)
     
     def comp_line_loop_table(self,pose):
         '''

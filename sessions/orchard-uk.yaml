@@ -21,7 +21,7 @@ train_loader:
     modality: 'range'
     pos_range: 5
     neg_range: 20
-    #max_point: 30000
+    max_points: 30000
 
   fraction: 0.3 
   batch_size: 1       # batch size
@@ -35,7 +35,7 @@ val_loader:
     modality: 'range' # ['range',projection,bev]'intensity','density','height','bev']
     #max_point: 30000
     pos_range: 2
-    max_point: 1024
+    max_points: 1024
 
   batch_size: 1 #50         # batch size
   workers:  0            # number of threads to get data
@@ -99,7 +99,7 @@ trainer:
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.0001
+    lr: 0.01
     weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 

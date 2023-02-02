@@ -44,7 +44,7 @@ class Trainer(BaseTrainer):
         self.train_metrics = None #StreamSegMetrics(len(labels))
         self.val_metrics = None #StreamSegMetrics(len(labels))
         self.batch_size = 1
-
+        
         # Eval data
         try:
             self.map_idx = self.val_loader.dataset.get_map_idx()
@@ -52,7 +52,7 @@ class Trainer(BaseTrainer):
             self.gt_loops = self.val_loader.dataset.get_GT_Map()
             self.poses = self.val_loader.dataset.get_pose()
             self.comp_line_loop_table = self.val_loader.dataset.comp_line_loop_table
-            self.gt_line_loops = self.val_loader.dataset.gt_line_loop_table
+            #self.gt_line_loops = self.val_loader.dataset.gt_loop_table
             
         except: 
             self.map_idx = self.val_loader.dataset.dataset.get_map_idx()
@@ -62,7 +62,7 @@ class Trainer(BaseTrainer):
             self.comp_line_loop_table = self.val_loader.dataset.dataset.comp_line_loop_table
             self.gt_line_loops = self.val_loader.dataset.dataset.gt_line_loop_table
 
-        self.gt_line_loops = np.array([[value] for value in self.gt_line_loops ])
+        #self.gt_line_loops = np.array([[value] for value in self.gt_line_loops ])
 
         self.gt_loops  = self.gt_loops[self.anchor_idx]
         self.true_loop = np.array([np.where(self.gt_loops[i]==1)[0] for i in range(self.gt_loops.shape[0])])
@@ -185,79 +185,45 @@ class Trainer(BaseTrainer):
 # ===================================================================================================================
 
 
+    def _valid_epoch(self,epoch):
+        
 
-    def _valid_epoch(self, epoch):
-        #self.html_results.save()
-        self.logger.info('\n')
+        sim_thres   = 0.5
+        burn_in     = 60
+        range_thres = 1
+        top_cand = [1,5,25]
+
+        # self.gt_table = comp_gt_table(self.pose,self.anchor,range_thres)
+        from utils.relocalization import relocal_metric,sim_relocalize
+        from eval_relocal import _get_top_cand
+        
         self.model.eval()
         
-        # Generate  Descriptors
+        self.true_loop_idx = np.array([np.where(self.gt_loops[i]==1)[0] for i in range(self.gt_loops.shape[0])])
+        
         descriptors = self.generate_descriptors(self.model,self.val_loader)
+   
 
-        # If descriptors contain 'Nans' exit
-        for  v,t in descriptors.items(): 
-            if np.isnan(np.array(t)).any():
-                return({'recall':-1, 'precision':-1,'F1':-1})
-
-        # Split Descriptors into Queries and Map
-        descriptor_idx = list(descriptors.keys())
-        query_dptrs = np.array([descriptors[i] for i in self.anchor_idx if i in descriptor_idx ])
-        map_dptrs = np.array([descriptors[i] for i in self.map_idx if i in descriptor_idx ])
-        # Retrieve loops 
-        max_top = np.max(self.top_cand_retrieval)
-        retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = self.eval_metric)
-        
-        pred_line_loops = []
-        for line in retrieved_loops:
-            line_loops = self.comp_line_loop_table(self.poses[line,:])
-            pred_line_loops.append(line_loops)
-        
-        pred_line_loops = np.array(pred_line_loops)
-        # Evaluate retrieval
-        from utils.metric import retrieve_eval
+        max_top = np.max(top_cand)
+        self.pred_idx, self.pred_scores  = sim_relocalize(  descriptors,
+                                                            top_cand = max_top, 
+                                                            burn_in  = burn_in, 
+                                                            sim_thres = sim_thres,
+                                                            )
 
         overall_scores = {}
-        for top in self.top_cand_retrieval:
-            scores = retrieve_eval(pred_line_loops,self.gt_line_loops, top = top)
-            overall_scores[top]=scores
-        # Post on tensorboard
-        for i, score in overall_scores.items():
-            self._write_scalars_tb(f'val@{i}',score,epoch)
-        return overall_scores,descriptors
 
-
-    def _multiscale_valid_epoch(self, epoch):
-        #self.html_results.save()
-        self.logger.info('\n')
-        self.model.eval()
+        for top in top_cand:
+            top_cand_hat = _get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thres,top=top)
+            scores = relocal_metric(top_cand_hat,self.true_loop_idx)
+            overall_scores[top] = scores
+            print(scores)
         
-        # Generate  Descriptors
-        descriptors = self.generate_descriptors(self.model,self.val_loader)
+        return(overall_scores,descriptors)
 
-        # If descriptors contain 'Nans' exit
-        for  v,t in descriptors.items(): 
-            if np.isnan(np.array(t)).any():
-                return({'recall':-1, 'precision':-1,'F1':-1})
 
-        # Split Descriptors into Queries and Map
-        descriptor_idx = list(descriptors.keys())
-        query_dptrs = np.array([descriptors[i] for i in self.anchor_idx if i in descriptor_idx ])
-        map_dptrs = np.array([descriptors[i] for i in self.map_idx if i in descriptor_idx ])
-        # Retrieve loops 
-        max_top = np.max(self.top_cand_retrieval)
-        retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = self.eval_metric)
 
-        # Evaluate retrieval
-        from utils.metric import retrieve_eval
 
-        overall_scores = {}
-        for top in self.top_cand_retrieval:
-            scores = retrieve_eval(retrieved_loops,self.true_loop, top = top)
-            overall_scores[top]=scores
-        # Post on tensorboard
-        for i, score in overall_scores.items():
-            self._write_scalars_tb(f'val@{i}',score,epoch)
-        return overall_scores,descriptors
 # ===================================================================================================================
 #    
 # ===================================================================================================================

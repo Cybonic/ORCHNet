@@ -42,8 +42,27 @@ from networks import model
 from utils.utils import generate_descriptors
 from utils.relocalization import relocal_metric,comp_gt_table,sim_relocalize
 from utils.viz import myplot
-from dataloader.utils import load_dataset
+#from dataloader.utils import load_dataset
 
+
+def load_dataset(dataset,session,memory,max_points=None,debug=False):
+
+    if os.sep == '\\':
+        root_dir = 'root_ws'
+    else:
+        root_dir = 'root'
+
+
+    loader = ORCHARDS(root    = session[root_dir],
+                        train_loader  = session['train_loader'],
+                        test_loader    = session['val_loader'],
+                        mode          = memory,
+                        split_mode    = 'same', 
+                        #subsample     = 0.5
+                        )
+    
+    
+    return(loader)
 
 
 def comp_eval_idx(pred,gt):
@@ -97,6 +116,17 @@ def color_retrieval_on_map(num_samples,anchors,tp,fp):
 
     return(c,s)
 
+def _get_top_cand(pred_idx,pred_scores,pos_thrs=0.5,top=1):
+        top_pred_cand_idx = pred_idx[:,:top]
+        top_pred_sores = pred_scores[:,:top]
+        top_cand_hat = []
+
+        for c,s in zip(top_pred_cand_idx,top_pred_sores):
+            c_hat = c[(s<pos_thrs).any() and (s>0).any()]
+            top_cand_hat.append(c_hat[0] if len(c_hat)>0 else [])
+        return(top_cand_hat)
+
+
 class relocalization():
     def __init__(self,loader,model, device = 'cpu', descriptor_path=None):
 
@@ -110,15 +140,7 @@ class relocalization():
         self.device = device
         self.path_to_descriptors = descriptor_path
     
-    def _get_top_cand(self,pred_idx,pred_scores,pos_thrs=0.5,top=1):
-        top_pred_cand_idx = pred_idx[:,:top]
-        top_pred_sores = pred_scores[:,:top]
-        top_cand_hat = []
-
-        for c,s in zip(top_pred_cand_idx,top_pred_sores):
-            c_hat = c[(s<pos_thrs).any() and (s>0).any()]
-            top_cand_hat.append(c_hat[0] if len(c_hat)>0 else [])
-        return(top_cand_hat)
+    
 
 
     def relocalize(self,sim_thres=0.5, burn_in=10, range_thres=1,top_cand=1):
@@ -143,7 +165,7 @@ class relocalization():
         overall_scores = {}
 
         for top in top_cand:
-            top_cand_hat = self._get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thres,top=top)
+            top_cand_hat = _get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thres,top=top)
             scores = relocal_metric(top_cand_hat,self.true_loop_idx)
             overall_scores[top] = scores
             print(scores)
@@ -153,7 +175,7 @@ class relocalization():
     
     def plot(self, sim_thrs = 0.5, record_gif=False, top=25, name= 'relocalization.gif'):
 
-        top_cand_hat = self._get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thrs,top=top)
+        top_cand_hat = _get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thrs,top=top)
         tp_idx,fp_idx = comp_eval_idx(top_cand_hat,self.true_loop_idx)
 
         plot = myplot(delay = 0.001)
@@ -208,7 +230,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/FITTING/LazyQuadrupletLoss_L2/autumn/VLAD_pointnet/best_model.pth',
+      default='checkpoints/LineTriplet_split/LazyQuadrupletLoss_L2/autumn/VLAD_pointnet/best_model.pth',
       help='Directory to get the trained model.'
   )
 
@@ -216,7 +238,7 @@ if __name__ == '__main__':
       '--memory',
       type=str,
       required=False,
-      default='RAM',
+      default='Disk',
       choices=['Disk','RAM'],
       help='Directory to get the trained model.'
   )
@@ -234,14 +256,6 @@ if __name__ == '__main__':
       type=int,
       required=False,
       default=1,
-      help='Directory to get the trained model.'
-  )
-
-  parser.add_argument(
-      '--modality',
-      type=str,
-      required=False,
-      default='pcl',
       help='Directory to get the trained model.'
   )
 
@@ -279,9 +293,17 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 500,
+      default = 1000,
       help='sampling points.'
   )
+  parser.add_argument(
+      '--modality',
+      type=str,
+      required=False,
+      default='pcl', # [pcl,bev, projection]
+      help='Directory to get the trained model.'
+  )
+
 
   FLAGS, unparsed = parser.parse_known_args()
 
@@ -299,6 +321,8 @@ if __name__ == '__main__':
 
 
   SESSION['model']['type'] = FLAGS.model
+  SESSION['train_loader']['data']['modality'] = FLAGS.modality
+  SESSION['val_loader']['data']['modality'] = FLAGS.modality
   print("----------")
   print("INTERFACE:")
   print("Root: ", SESSION['root'])
@@ -333,7 +357,7 @@ if __name__ == '__main__':
   print("Opening data config file: %s" % cfg_file)
   sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
 
-  loader, run_name = load_dataset(FLAGS,SESSION,sensor = sensor_cfg)
+  loader = load_dataset(FLAGS,SESSION,FLAGS.memory,debug = FLAGS.debug)
 
 
   SESSION['train_loader']['data']['max_points'] = FLAGS.max_points
@@ -348,6 +372,10 @@ if __name__ == '__main__':
   
   try: 
     model_.load_state_dict(checkpoint['state_dict'])
+    print("\n**********************************************************")
+    print("Just loaded a pre-trained model")
+    print("Recall: " + str(checkpoint['monitor_best']['recall']))
+    print("**********************************************************\n")
   except:
     print("No Model Loaded!")
     exit()

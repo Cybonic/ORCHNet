@@ -58,7 +58,8 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         mode          = memory,
                         sensor        = sensor_cfg,
                         split_mode    = 'same', 
-                        subsample     = 0.5)
+                        #subsample     = 0.5
+                        )
     
     
     return(loader)
@@ -164,7 +165,7 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'MeanLazyQuadrupletLoss',
+      default = 'LazyQuadrupletLoss',
       #choices = ['MetricLazyQuadrupletLoss','LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
@@ -179,7 +180,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 5000,
+      default = 1000,
       help='sampling points.'
   )
 
