@@ -22,7 +22,7 @@ train_loader:
     max_points: 30000
   
   ground_truth: 
-    pos_range: 5 # Loop Threshold [m]
+    pos_range: 2 # Loop Threshold [m]
     neg_range: 10
     num_neg: 20
     num_pos: 1
@@ -43,10 +43,10 @@ val_loader:
     max_points: 30000
 
   ground_truth: 
-    pos_range: 5 # Loop Threshold [m]
+    pos_range: 1.5 # Loop Threshold [m]
     neg_range: 10
     num_neg: 0
-    num_pos: 25
+    num_pos: 50
     warmupitrs: 600 # Number of frames to ignore at the beguinning
     roi: 500 
 

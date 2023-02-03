@@ -10,19 +10,15 @@ import yaml
 import numpy as np
 import tqdm
 import torch
-from utils.retrieval import gen_ground_truth
 
 
-ASEGMENTS = [   {'xmin':-15,'xmax':-9,'ymin':-50,'ymax':-1 },
-                {'xmin':-9,'xmax':-5,'ymin':-50,'ymax':-1 },
-                {'xmin':-5,'xmax':-2,'ymin':-50,'ymax':-1 },
-                {'xmin':-2,'xmax':2,'ymin':-50,'ymax':-1 },
+ASEGMENTS = [   {'xmin':-15,'xmax':-9,'ymin':-49,'ymax':-3 },
+                {'xmin':-9,'xmax':-5,'ymin':-49,'ymax':-3 },
+                {'xmin':-5,'xmax':-2,'ymin':-49,'ymax':-3 },
+                {'xmin':-2,'xmax':2,'ymin':-49,'ymax':-3 },
                 {'xmin':-15,'xmax':2,'ymin':-55,'ymax':-49 },
                 {'xmin':-15,'xmax':2,'ymin':-3,'ymax':5 }
                 ]
-
-
-
 
 
 PREPROCESSING = Tr.Compose([Tr.ToTensor()])
@@ -32,22 +28,6 @@ MODALITIES = ['range','projection','remissions','mask']
 def subsampler(universe,num_sub_samples):
         assert  len(universe)>num_sub_samples
         return np.random.randint(0,len(universe),size=num_sub_samples)
-
-def comp_score_table(target):
-    '''
-    
-    '''
-    if not isinstance(target,np.ndarray):
-        target = np.array(target)
-    
-    table_width = target.shape[0]
-    
-    table = np.zeros((table_width,table_width),dtype=np.float32)
-    table = []
-    for i in range(table_width):
-        qdistance = np.linalg.norm(target[i,:]-target,axis=1)
-        table.append(qdistance.tolist())
-    return(np.asarray(table))
 
 
 
@@ -88,12 +68,17 @@ def gen_ground_truth(   poses,
         sort_=np.argsort(alpha[:i-roi])
         pos_sort_ = sort_[select_pos_idx]
         pos_idx = np.where(dist_meter[pos_sort_] < pos_range)[0]
-
-        #neg_idx = np.where(dist_meter > pos_range)[0]
-        #neg_idx = np.setxor1d(neg_idx,pos_idx)
+        
+        # Select only those positives that are in the same line then the anchor
+        #an_seg = get_roi_points(pose,ASEGMENTS)
+        #print(an_seg)
+        #pos_seg = get_roi_points(poses[pos_idx,:],ASEGMENTS)
+        #pos_idx_ref = [idx for idx, pos in zip(pos_idx,pos_seg) if pos in an_seg]
+        #print(pos_seg)
+        # save
         if  len(pos_idx)>0:
             anchor.append(i)
-            positive.append(sort_[pos_idx])
+            positive.append([sort_[idx] for idx in pos_idx])
         else: 
             sort_=-1
     
@@ -112,13 +97,19 @@ def gen_ground_truth(   poses,
     return(anchor,positive,negatives)
 
 
-
-
-def get_roi_points(points,roi):
-    roi_dx = ((points[:,0]>=roi['xmin']).astype(np.int8) * (points[:,0]<roi['xmax']).astype(np.int8) *
-                  (points[:,1]>=roi['ymin']).astype(np.int8) * (points[:,1]<roi['ymax']).astype(np.int8))
-    
-    return roi_dx.astype(np.bool8)
+def get_roi_points(points,rois):
+    points = points.reshape((-1,2))
+    labels = []
+    for j,point in enumerate(points):
+        pointlabel = []
+        for i,roi in enumerate(rois):
+            roi_dx = ((point[0]>=roi['xmin']).astype(np.int8) * (point[0]<roi['xmax']).astype(np.int8) *
+                      (point[1]>=roi['ymin']).astype(np.int8) * (point[1]<roi['ymax']).astype(np.int8))
+            if roi_dx == 1:
+                pointlabel=i
+                break
+        labels.append(pointlabel)   
+    return labels
 
 
 def get_point_cloud_files(dir):
@@ -146,7 +137,12 @@ class parser():
 # ========================================================================================================
 
 class OrchardDataset():
-    def __init__(self,root,dataset,seq,sync = True , modality='pcl' ,
+    def __init__(self,
+                    root,
+                    dataset,
+                    seq,
+                    sync = True , 
+                    modality = 'pcl' ,
                     ground_truth = { 'pos_range':4, # Loop Threshold [m]
                                      'neg_range': 10,
                                      'num_neg':20,
@@ -154,6 +150,7 @@ class OrchardDataset():
                                      'warmupitrs': 600, # Number of frames to ignore at the beguinning
                                      'roi':500},
                         **argv):
+
         self.modality = modality
 
         # Load dataset and laser settings
@@ -200,11 +197,7 @@ class OrchardDataset():
 
             self.point_cloud_files = self.point_cloud_files[sync_plc_idx]
             self.pose =  self.pose[sync_pose_idx]
-        
-        # Load indicies to split the dataset in queries, positive and map 
-        #triplet_file = os.path.join(self.target_dir,'sync_triplets.txt')
-        #assert os.path.isfile(triplet_file), 'Triplet indice file does not exist: ' + triplet_file
-        #self.anchors, _ , _ = parse_triplet_file(triplet_file)
+       
         self.anchors,self.positives,self.negatives = gen_ground_truth(self.pose,**ground_truth)
 
         n_points = self.pose.shape[0]
@@ -218,6 +211,9 @@ class OrchardDataset():
 
     def __call__(self,idx):
         return self.load_point_cloud(idx)
+
+    def _get_gt_(self):
+        return self.table
 
     def _get_pose_(self,idx=np.nan):
         if not isinstance(idx,(np.ndarray, np.generic)):
@@ -264,19 +260,11 @@ class ORCHARDSEval(OrchardDataset):
         self.line_rois = ASEGMENTS
 
         self.num_samples = self.point_cloud_files.shape[0]
-        # generate map indicies:ie inidices that do not belong to the anchors/queries
         self.idx_universe = np.arange(self.num_samples)
 
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
-        #self.anchors,self.positives,_ = gen_ground_truth(self.poses,argv['pos_thres'], warmupitrs=600, roi=500)
-        # self.gt_line_loop_table = self.comp_line_loop_table(self.pose)
-        #n_points = self.poses.shape[0]
-        
-        #self.table = np.zeros((n_points,n_points))
-        #for a,p in zip(self.anchors,self.positives):
-        #    self.table[a,p]=1
-
+   
         assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
 
         if self.mode == 'RAM':
@@ -372,15 +360,6 @@ class ORCHARDSTriplet(OrchardDataset):
         # Eval data
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
-        #self.anchors,self.positives,self.negatives = gen_ground_truth(self.poses,pos_thres, neg_thres,num_neg,num_pos, warmupitrs=600, roi=500)
-        #self.gt_loop_table = self.comp_line_loop_table(self.pose)
-        #n_points = self.poses.shape[0]
-        #self.table = np.zeros((n_points,n_points))
-        #for a,p in zip(self.anchors,self.positives):
-        #    self.table[a,p]=1
-
-        # self.positive , self.negative = self.line_wise_triplet_split(self.gt_line_loop_table,self.anchors,num_neg,num_pos)
-        #self.negative = gen_ground_truth(self.pose,self.anchors,pos_thres,neg_thres,num_neg,num_pos)
 
         if 'subsample' in argv and argv['subsample'] > 0:
             self.set_subsampler(argv['subsample'])

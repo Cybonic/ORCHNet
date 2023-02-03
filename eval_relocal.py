@@ -293,7 +293,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 20000,
+      default = 10000,
       help='sampling points.'
   )
   parser.add_argument(
@@ -399,11 +399,11 @@ if __name__ == '__main__':
 
           )
   
-  sim_thres = 0.1
+  sim_thres = 0.6 
   top_cand = 1
   results = eval.relocalize(sim_thres = sim_thres,
                             top_cand = list(range(1,25,1)),
-                            burn_in=60)
+                            burn_in=600)
   
   columns = ['top','recall','precision']
   rows = [[t,v['recall'],v['precision']] for t,v in results.items()]
