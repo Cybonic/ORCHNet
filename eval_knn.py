@@ -20,10 +20,7 @@ import yaml
 from shutil import copyfile
 import os
 os.environ['NUMEXPR_NUM_THREADS'] = '8'
-import shutil
-import tqdm
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import signal, sys
+
 from sklearn.neighbors import NearestNeighbors
 from torch import optim
 import torch 
@@ -37,11 +34,11 @@ import random
 from torch.utils.data import DataLoader, random_split
 from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
-from dataloader.KITTI import KITTI
-from dataloader.POINTNETVLAD import POINTNETVLAD
-from dataloader.FUBERLIN import FUBERLIN
+
 from mst_trainer import Trainer
 from networks import model
+from utils.retrieval import retrieval_knn
+from utils.metric import retrieve_eval
 
 def load_dataset(inputs,session,max_points=50000,debug=False):
 
@@ -50,70 +47,47 @@ def load_dataset(inputs,session,max_points=50000,debug=False):
     else:
         root_dir = 'root'
 
-
-    if inputs.session == 'kitti':
         
-        if debug:
-            session['train_loader']['data']['sequence'] = ['00']
-            session['val_loader']['data']['sequence'] = ['00']
-            print("[Main] Debug mode ON: training and Val on Sequence 00 \n")
+    session['val_loader']['data']['modality'] = inputs.modality
+    session['val_loader']['data']['sequence'] = inputs.sequence
+    session['val_loader']['batch_size'] = inputs.batch_size
 
-        session['val_loader']['data']['modality'] = inputs.modality
-        session['val_loader']['data']['sequence'] = inputs.sequence
-        session['val_loader']['batch_size'] = inputs.batch_size
-
-        loader = KITTI( root = session[root_dir],
+    loader = ORCHARDS(root    = session[root_dir],
                         train_loader  = session['train_loader'],
                         val_loader    = session['val_loader'],
                         mode          = inputs.memory,
                         sensor        = sensor_cfg,
                         debug         = debug,
-                        max_points = 50000)
+                        max_points = 30000)
 
-    elif inputs.session == 'orchard-uk' :
-        
-        session['val_loader']['data']['modality'] = inputs.modality
-        session['val_loader']['data']['sequence'] = inputs.sequence
-        session['val_loader']['batch_size'] = inputs.batch_size
+    return(loader,[])
 
-        loader = ORCHARDS(root    = session[root_dir],
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = inputs.memory,
-                            sensor        = sensor_cfg,
-                            debug         = debug,
-                            max_points = 30000)
-        run_name = {'dataset': ""}
-    
-    elif inputs.session == 'pointnetvlad':
-        
-        session['val_loader']['data']['modality'] = inputs.modality
-        session['val_loader']['data']['sequence'] = inputs.sequence
-        session['val_loader']['batch_size'] = inputs.batch_size
 
-        loader = POINTNETVLAD(root       = session[root_dir],
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = inputs.memory,
-                            max_points = 50000
-                            )
-    
-    elif inputs.session == 'fuberlin':
-        
-        #session['train_loader']['root'] =  session[root_dir]
-        session['val_loader']['anchor']['root'] =  session[root_dir]
-        session['val_loader']['database']['root'] =  session[root_dir]
-        session['val_loader']['batch_size'] = inputs.batch_size
-        
-        loader = FUBERLIN(
-                            train_loader  = session['train_loader'],
-                            val_loader    = session['val_loader'],
-                            mode          = inputs.memory
-                            )
-        
-        run_name = {'dataset': session['val_loader']['anchor']['sequence']}
-    
-    return(loader,run_name)
+def knn_eval(descriptors,anchors,database,true_loop,list_top_cand,eval_metric):
+
+
+    nra=500 # None Retrieval Area
+    max_top = np.max(list_top_cand)
+
+    descriptor_idx = list(descriptors.keys())
+    for anchor in anchors:
+        database_idx = database[:anchor-nra] # 
+
+        query_dptrs =  np.array([descriptors[i] for i in anchor if i in descriptor_idx ])
+        map_dptrs = np.array([descriptors[i] for i in database_idx if i in descriptor_idx ])
+        # Retrieve loops 
+        retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = eval_metric)
+
+    # Evaluate retrieval
+    overall_scores = {}
+    for top in range(max_top):
+        scores = retrieve_eval(retrieved_loops,true_loop, top = top)
+        overall_scores[top]=scores
+    # Post on tensorboard
+    return overall_scores,descriptors
+
+
+
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser("./infer.py")

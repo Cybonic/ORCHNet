@@ -3,7 +3,7 @@ from cmath import nan
 from base.base_trainer import BaseTrainer
 from tqdm import tqdm  
 import numpy as np
-from utils.retrieval import evaluation,sim_knn,retrieval_knn
+
 #from utils.viz import plot_retrieval_on_map
 import torch
 from utils.loss import L2_np 
@@ -186,35 +186,29 @@ class Trainer(BaseTrainer):
         top_cand = [1,5,25]
 
         # self.gt_table = comp_gt_table(self.pose,self.anchor,range_thres)
-        from utils.relocalization import relocal_metric,sim_relocalize
-        from eval_relocal import _get_top_cand
+        
         
         self.model.eval()
         
         descriptors = self.generate_descriptors(self.model,self.val_loader)
+
         nra=500
         descriptor_idx = list(descriptors.keys())
-        pred_loops = []
-        true_loops = []
-        for anchor in tqdm(self.anchors_idx):
+        for anchor in self.anchors_idx:
             database_idx = self.idx_universe[:anchor-nra]
-            #psotivies = self.true_loop[anchor]
 
-            query_dptrs =  np.array([descriptors[i] for i in [anchor] if i in descriptor_idx ])
+            query_dptrs =  np.array([descriptors[i] for i in anchor if i in descriptor_idx ])
             map_dptrs = np.array([descriptors[i] for i in database_idx if i in descriptor_idx ])
             # Retrieve loops 
             max_top = np.max(self.top_cand_retrieval)
             retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = self.eval_metric)
-            pred_loops.append(retrieved_loops[0]) # [0] -> is mandatory because the knn approach works on arrays of queries. so since only one is used one has to use [0]
-            true_loops.append(self.true_loop[anchor])
+
         # Evaluate retrieval
         from utils.metric import retrieve_eval
 
-        pred_loops = np.array(pred_loops)
-        true_loops = np.array(true_loops)
         overall_scores = {}
         for top in self.top_cand_retrieval:
-            scores = retrieve_eval(pred_loops,true_loops, top = top)
+            scores = retrieve_eval(retrieved_loops,self.true_loop, top = top)
             overall_scores[top]=scores
         # Post on tensorboard
         for i, score in overall_scores.items():

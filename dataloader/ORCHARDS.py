@@ -51,7 +51,7 @@ def gen_ground_truth(   poses,
     for i in ROI:
     
         _map_   = poses[:i,:]
-        pose    = poses[i,:].reshape((1,2))
+        pose    = poses[i,:].reshape((1,-1))
         map_frame_idx  = indices[:i]
         
         dist_meter = np.linalg.norm(pose-_map_,axis=1)
@@ -86,7 +86,7 @@ def gen_ground_truth(   poses,
     negatives= []
     neg_idx = np.arange(num_neg)   
     for a, pos in zip(anchor,positive):
-        pa = poses[a,:].reshape((1,2))
+        pa = poses[a,:].reshape((1,-1))
         dist_meter = np.linalg.norm(pa-poses,axis=1)
         neg_idx = np.where(dist_meter > neg_range)[0]
         neg_idx = np.setxor1d(neg_idx,pos)

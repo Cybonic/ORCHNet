@@ -38,7 +38,7 @@ train_loader:
 val_loader:
   data:
     dataset: ''
-    sequence: 'autumn'
+    sequence: 'summer'
     modality: 'range' # ['range',projection,bev]'intensity','density','height','bev']
     max_points: 10000
 
