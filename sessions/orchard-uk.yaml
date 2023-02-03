@@ -19,7 +19,7 @@ train_loader:
     sequence: 'autumn'
     aug: False
     modality: 'range'
-    max_points: 30000
+    max_points: 10000
   
   ground_truth: 
     pos_range: 2 # Loop Threshold [m]
@@ -40,10 +40,10 @@ val_loader:
     dataset: ''
     sequence: 'autumn'
     modality: 'range' # ['range',projection,bev]'intensity','density','height','bev']
-    max_points: 30000
+    max_points: 10000
 
   ground_truth: 
-    pos_range: 1.5 # Loop Threshold [m]
+    pos_range: 2 # Loop Threshold [m]
     neg_range: 10
     num_neg: 0
     num_pos: 50

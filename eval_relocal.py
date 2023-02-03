@@ -206,7 +206,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='VLAD_pointnet',
+      default='SPoC_pointnet',
       help='Directory to get the trained model.'
   )
   
@@ -230,7 +230,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/LineTriplet_split/LazyQuadrupletLoss_L2/autumn/VLAD_pointnet/best_model.pth',
+      default='checkpoints/RelocTrainF128P10k/LazyQuadrupletLoss_L2/autumn/SPoC_pointnet/best_model.pth',
       help='Directory to get the trained model.'
   )
 
@@ -399,8 +399,8 @@ if __name__ == '__main__':
 
           )
   
-  sim_thres = 0.6 
-  top_cand = 1
+  sim_thres = 0.1 
+  # Compute performance
   results = eval.relocalize(sim_thres = sim_thres,
                             top_cand = list(range(1,25,1)),
                             burn_in=600)
@@ -409,7 +409,8 @@ if __name__ == '__main__':
   rows = [[t,v['recall'],v['precision']] for t,v in results.items()]
   import pandas as pd
 
-  
+  # Save Results
+  top_cand = 20
   score =  round(results[top_cand]['recall'],3)
   
   df = pd.DataFrame(rows,columns = columns)
@@ -432,7 +433,7 @@ if __name__ == '__main__':
 
   gif_name = os.path.join(reloc_dir,file_name+'.gif')
 
-  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=False, name = gif_name)
+  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=True, name = gif_name)
 
 
   

@@ -71,7 +71,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='VLAD_pointnet',
+      default='SPoC_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='LineTriplet_split',
+      default='RelocTrainF128P10k',
       help='Directory to get the trained model.'
   )
 
@@ -95,7 +95,7 @@ if __name__ == '__main__':
       '--resume', '-r',
       type=str,
       required=False,
-      default='None',
+      default='best_model',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/range-rerecord_sparce-AttVLAD_resnet50-0.87.pth',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/bev-rerecord_sparce-AttVLAD_resnet50-0.54.pth',
       help='Directory to get the trained model.'
