@@ -47,14 +47,14 @@ class Trainer(BaseTrainer):
         
         # Eval data
         try:
-            self.map_idx = self.val_loader.dataset.get_map_idx()
-            self.anchor_idx = self.val_loader.dataset.get_anchor_idx()
+            self.idx_universe = self.val_loader.dataset.get_idx_universe()
+            self.anchors_idx = self.val_loader.dataset.get_anchor_idx()
             self.table = self.val_loader.dataset.get_GT_Map()
             self.poses = self.val_loader.dataset.get_pose()
             
         except: 
-            self.map_idx = self.val_loader.dataset.dataset.get_map_idx()
-            self.anchor_idx = self.val_loader.dataset.dataset.get_anchor_idx()
+            self.idx_universe = self.val_loader.dataset.dataset.get_idx_universe()
+            self.anchors_idx = self.val_loader.dataset.dataset.get_anchor_idx()
             self.table = self.val_loader.dataset.dataset.get_GT_Map()
             self.poses = self.val_loader.dataset.dataset.get_pose()
 
@@ -192,22 +192,34 @@ class Trainer(BaseTrainer):
         self.model.eval()
         
         descriptors = self.generate_descriptors(self.model,self.val_loader)
-   
+        nra=500
+        descriptor_idx = list(descriptors.keys())
+        pred_loops = []
+        true_loops = []
+        for anchor in tqdm(self.anchors_idx):
+            database_idx = self.idx_universe[:anchor-nra]
+            #psotivies = self.true_loop[anchor]
 
-        max_top = np.max(top_cand)
-        self.pred_idx, self.pred_scores  = sim_relocalize(  descriptors,
-                                                            top_cand = max_top, 
-                                                            burn_in  = burn_in, 
-                                                            sim_thres = sim_thres,
-                                                            )
+            query_dptrs =  np.array([descriptors[i] for i in [anchor] if i in descriptor_idx ])
+            map_dptrs = np.array([descriptors[i] for i in database_idx if i in descriptor_idx ])
+            # Retrieve loops 
+            max_top = np.max(self.top_cand_retrieval)
+            retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = self.eval_metric)
+            pred_loops.append(retrieved_loops[0]) # [0] -> is mandatory because the knn approach works on arrays of queries. so since only one is used one has to use [0]
+            true_loops.append(self.true_loop[anchor])
+        # Evaluate retrieval
+        from utils.metric import retrieve_eval
 
+        pred_loops = np.array(pred_loops)
+        true_loops = np.array(true_loops)
         overall_scores = {}
-
-        for top in top_cand:
-            top_cand_hat = _get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thres,top=top)
-            scores = relocal_metric(top_cand_hat,self.true_loop)
-            overall_scores[top] = scores
-            print(scores)
+        for top in self.top_cand_retrieval:
+            scores = retrieve_eval(pred_loops,true_loops, top = top)
+            overall_scores[top]=scores
+        # Post on tensorboard
+        for i, score in overall_scores.items():
+            self._write_scalars_tb(f'val@{i}',score,epoch)
+        return overall_scores,descriptors
         
         return(overall_scores,descriptors)
 

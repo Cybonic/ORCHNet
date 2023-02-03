@@ -262,10 +262,10 @@ class ORCHARDSEval(OrchardDataset):
         self.num_samples = self.point_cloud_files.shape[0]
         self.idx_universe = np.arange(self.num_samples)
 
-        self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
+        #self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
    
-        assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
+        #assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
 
         if self.mode == 'RAM':
             self.inputs = self.load_RAM()
