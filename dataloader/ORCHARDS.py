@@ -66,8 +66,7 @@ def gen_ground_truth(   poses,
         alpha = dist/frame_dist
         # Sort distance and get smallest  outside ROI 
         sort_=np.argsort(alpha[:i-roi])
-        pos_sort_ = sort_[select_pos_idx]
-        pos_idx = np.where(dist_meter[pos_sort_] < pos_range)[0]
+        pos_idx = np.where(dist_meter[sort_] < pos_range)[0]
         
         # Select only those positives that are in the same line then the anchor
         #an_seg = get_roi_points(pose,ASEGMENTS)
@@ -152,7 +151,7 @@ class OrchardDataset():
                         **argv):
 
         self.modality = modality
-
+        self.num_pos = ground_truth['num_pos']
         # Load dataset and laser settings
         cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
         sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
@@ -198,14 +197,14 @@ class OrchardDataset():
             self.point_cloud_files = self.point_cloud_files[sync_plc_idx]
             self.pose =  self.pose[sync_pose_idx]
        
+        
         self.anchors,self.positives,self.negatives = gen_ground_truth(self.pose,**ground_truth)
-
         n_points = self.pose.shape[0]
         self.table = np.zeros((n_points,n_points))
         for a,p in zip(self.anchors,self.positives):
             self.table[a,p]=1
-
-
+        
+        
     def __len__(self):
         return self.pose.shape[0]
 
@@ -358,7 +357,7 @@ class ORCHARDSTriplet(OrchardDataset):
         self.num_samples = len(self._get_point_cloud_file_())
         self.idx_universe = np.arange(self.num_samples)
         # Eval data
-        self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
+        #self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
 
         if 'subsample' in argv and argv['subsample'] > 0:
@@ -368,7 +367,13 @@ class ORCHARDSTriplet(OrchardDataset):
         if self.mode == 'RAM':
             self.inputs = self.load_RAM()
 
+    
+    def load_subset(self,subsetidx):
         
+        self.anchors= np.array(self.anchors)[subsetidx]
+        self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
+        
+
     def line_wise_triplet_split(self,gt_line_labels,anchors,num_neg,num_pos):
         classes = np.unique(gt_line_labels)
         positives =[]
@@ -427,6 +432,7 @@ class ORCHARDSTriplet(OrchardDataset):
 
     def get_triplet_data(self,index):
         an_idx,pos_idx,neg_idx  = self.anchors[index],self.positives[index], self.negatives[index]
+        pos_idx = pos_idx[:self.num_pos]
         if self.mode == 'RAM':     
             # point clouds are already converted to the input representation, is only required to 
             #  convert to tensor 
@@ -519,13 +525,14 @@ class ORCHARDS():
         if split_mode == 'cross-val':
             # Cross-validation. Train and test sets are from different sequences
             
-               
+            train_set.comp_ground_truth(train_loader['ground_truth'])   
             test_set = ORCHARDSEval( root =  kwargs['root'],
                                                 mode = kwargs['mode'],
                                                 #num_subsamples = num_subsamples,
                                                 **test_loader['data'],
                                                 ground_truth = test_loader['ground_truth']
                                                 )
+         
 
         elif  split_mode == 'train-test':
             # train-test: train and test sets are from the same sequences, which is split randomly in two.
@@ -537,13 +544,34 @@ class ORCHARDS():
             train_set_size = int(len(train_set) * train_size)
             valid_set_size = len(train_set) - train_set_size
             train_set, test_set = data.random_split(train_set, [train_set_size, valid_set_size])
+            
             test_set.dataset = copy.copy(test_set.dataset) # Mandatory to guarantee independence from the training
+
+            #train_set.comp_ground_truth(train_loader['ground_truth'])
+            train_set.dataset.load_subset(train_set.indices)
+            
+            print("Train set: " + str(len(train_set.indices)))
+            print("Test set: " + str(len(test_set.indices)))
+            train_set = train_set.dataset
+
             test_set.dataset.set_eval_mode(True)
+            #test_set.comp_ground_truth(test_loader['ground_truth'])
+            test_set.dataset.load_subset(test_set.indices)
+            test_set = test_set.dataset
+            
             #train_set.dataset.set_eval_mode(False)
         else:
             # Test on the same dataset as trained (Only for debugging)
             test_set =  copy.copy(train_set)
+
+            #train_set.comp_ground_truth(train_loader['ground_truth'])
+            train_set.load_subset(train_set.indices)
+            train_set = train_set.dataset
+
             test_set.set_eval_mode(True)
+            #test_set.comp_ground_truth(test_loader['ground_truth'])
+            test_set.dataset.load_subset(test_set.indices)
+            test_set = test_set.dataset
         
         #print(test_set.indices)
         #print(train_set.indices)
@@ -574,7 +602,8 @@ class ORCHARDS():
     def get_label_distro(self):
         raise NotImplemented
 		#return  1-np.array(self.label_disto)
-        #   
+    
+
 def conv2PIL(image):
     min_val = np.min(image)
     max_val = np.max(image)

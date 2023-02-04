@@ -33,7 +33,7 @@ class Trainer(BaseTrainer):
         self.train_loader   = loader.get_train_loader()
         self.val_loader     = loader.get_val_loader()
         self.test_loader    = None
-        #self.device         = device
+        self.device         = device
         self.model          = model
         self.hyper_log      = config
 
@@ -45,20 +45,8 @@ class Trainer(BaseTrainer):
         self.val_metrics = None #StreamSegMetrics(len(labels))
         self.batch_size = 1
         
-        # Eval data
-        try:
-            self.idx_universe = self.val_loader.dataset.get_idx_universe()
-            self.anchors_idx = self.val_loader.dataset.get_anchor_idx()
-            self.table = self.val_loader.dataset.get_GT_Map()
-            self.poses = self.val_loader.dataset.get_pose()
-            
-        except: 
-            self.idx_universe = self.val_loader.dataset.dataset.get_idx_universe()
-            self.anchors_idx = self.val_loader.dataset.dataset.get_anchor_idx()
-            self.table = self.val_loader.dataset.dataset.get_GT_Map()
-            self.poses = self.val_loader.dataset.dataset.get_pose()
-
-        self.true_loop = np.array([np.where(line==1)[0] for line in self.table])
+        from eval_knn import PlaceRecognition
+        self.eval_approach = PlaceRecognition(self.model ,self.val_loader,25,'L2',device)
 
         
 
@@ -153,67 +141,17 @@ class Trainer(BaseTrainer):
 #    
 # ===================================================================================================================
 
-    def generate_descriptors(self,model,val_loader):
-        dataloader = iter(self.val_loader)
-        tbar = tqdm(range(len(self.val_loader)), ncols=100)
-
-        self._reset_metrics()
-        prediction_bag = {}
-        idx_bag = []
-        for batch_idx in tbar:
-            input,inx = next(dataloader)
-            #assert input.isnan().any() == False
-            input = self._send_to_device(input)
-            # Generate the Descriptor
-            prediction = self.model(input)
-            assert prediction.isnan().any() == False
-            #print(torch.sum(torch.isnan(input)))
-            # Keep descriptors
-            for d,i in zip(prediction.detach().cpu().numpy().tolist(),inx.detach().cpu().numpy().tolist()):
-                prediction_bag[int(i)] = d
-        return(prediction_bag)
-            
-# ===================================================================================================================
-#    
-# ===================================================================================================================
 
 
     def _valid_epoch(self,epoch):
         
 
-        sim_thres   = 0.5
-        burn_in     = 60
-        top_cand = [1,5,25]
+        overall_scores = self.eval_approach.run()
 
-        # self.gt_table = comp_gt_table(self.pose,self.anchor,range_thres)
-        
-        
-        self.model.eval()
-        
-        descriptors = self.generate_descriptors(self.model,self.val_loader)
-
-        nra=500
-        descriptor_idx = list(descriptors.keys())
-        for anchor in self.anchors_idx:
-            database_idx = self.idx_universe[:anchor-nra]
-
-            query_dptrs =  np.array([descriptors[i] for i in anchor if i in descriptor_idx ])
-            map_dptrs = np.array([descriptors[i] for i in database_idx if i in descriptor_idx ])
-            # Retrieve loops 
-            max_top = np.max(self.top_cand_retrieval)
-            retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = max_top, metric = self.eval_metric)
-
-        # Evaluate retrieval
-        from utils.metric import retrieve_eval
-
-        overall_scores = {}
-        for top in self.top_cand_retrieval:
-            scores = retrieve_eval(retrieved_loops,self.true_loop, top = top)
-            overall_scores[top]=scores
         # Post on tensorboard
         for i, score in overall_scores.items():
             self._write_scalars_tb(f'val@{i}',score,epoch)
-        return overall_scores,descriptors
+        return overall_scores,[]
         
         return(overall_scores,descriptors)
 

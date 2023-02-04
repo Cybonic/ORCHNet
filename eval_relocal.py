@@ -271,7 +271,7 @@ if __name__ == '__main__':
       '--sequence',
       type=str,
       required=False,
-      default='autumn',
+      default='summer',
       help='Directory to get the trained model.'
   )
 
@@ -433,7 +433,7 @@ if __name__ == '__main__':
 
   gif_name = os.path.join(reloc_dir,file_name+'.gif')
 
-  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=True, name = gif_name)
+  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=False, name = gif_name)
 
 
   

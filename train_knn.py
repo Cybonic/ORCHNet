@@ -57,7 +57,7 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         test_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
-                        split_mode    = 'cross-val', 
+                        split_mode    = 'train-test', 
                         #subsample     = 0.5
                         )
     
@@ -79,7 +79,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='RelocTrainF128P10k',
+      default='PR-TrainF128P30k',
       help='Directory to get the trained model.'
   )
 
@@ -95,7 +95,7 @@ if __name__ == '__main__':
       '--resume', '-r',
       type=str,
       required=False,
-      default='best_model',
+      default='None',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/range-rerecord_sparce-AttVLAD_resnet50-0.87.pth',
               #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/bev-rerecord_sparce-AttVLAD_resnet50-0.54.pth',
       help='Directory to get the trained model.'
@@ -180,7 +180,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 5000,
+      default = 30000,
       help='sampling points.'
   )
 
