@@ -1,7 +1,7 @@
 
 from .backbone import resnet,mobilenetv2,pointnet
 from .AttDLNet import AttVLADHead,VLADHead,AttDLNet
-from .heads.pooling import GeM,SPoC
+from .heads.pooling import GeM,SPoC,MAC
 from .utils import IntermediateLayerGetter
 
 def _place_resnet(name, backbone_name, output_dim, output_stride, max_samples,pretrained_backbone,**argv):
@@ -37,7 +37,7 @@ def _place_resnet(name, backbone_name, output_dim, output_stride, max_samples,pr
 
 def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
     
-    inplanes = 128
+    inplanes = 1024
     
     backbone = pointnet.PointNet_features(dim_k=inplanes,use_tnet=argv['use_tnet'], scale=1)
 
@@ -47,9 +47,11 @@ def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
     if name.endswith('VLAD'):
         classifier = VLADHead(in_dim=inplanes,out_dim=output_dim,max_samples=max_samples)
     elif name.endswith('GeM'):
-        classifier = GeM()
+        classifier = GeM(outdim=output_dim)
     elif name.endswith('SPoC'):
-        classifier = SPoC()
+        classifier = SPoC(outdim=output_dim)
+    elif name.endswith('MAC'):
+        classifier = MAC(outdim=output_dim)
     from .AttDLNet import Attention
     import torch
     
@@ -80,6 +82,10 @@ def _load_model(arch_type, backbone, output_dim,output_stride, pretrained_backbo
 # ================================================================
 # PointNet
 # ================================================================
+def MAC_pointnet(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('GeM', 'pointnet', output_dim,**argv)
+
 def GeM_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('GeM', 'pointnet', output_dim,**argv)

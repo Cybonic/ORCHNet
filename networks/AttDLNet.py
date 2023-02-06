@@ -153,6 +153,8 @@ class AttDLNet(nn.Module):
     #y = y.reshape((b,-1,1024)) # <- You have to change this
       #y = y.transpose(1,3)
     z = self.classifier(y)
+    #z = F.softmax(z,dim=1)
+    #s = z.sum(dim=1)
     # output =  z_norm.reshape((b,s,256))
     return z
   

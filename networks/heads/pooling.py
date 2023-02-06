@@ -9,9 +9,9 @@ import torch.nn.functional as F
 
 
 class MAC(nn.Module):
-    def __init__(self, **rgv):
+    def __init__(self,outdim=256, **rgv):
         super().__init__()
-        self.fc = nn.LazyLinear(256)
+        self.fc = nn.LazyLinear(outdim)
 
     def forward(self, x):
         # Return (batch_size, n_features) tensor
@@ -22,9 +22,10 @@ class MAC(nn.Module):
 
 
 class SPoC(nn.Module):
-    def __init__(self, **argv):
+    def __init__(self, outdim=256,**argv):
         super().__init__()
-        self.fc = nn.LazyLinear(256)
+        self.fc = nn.LazyLinear(outdim)
+
     def forward(self, x):
         # Return (batch_size, n_features) tensor
         x = x.view(x.shape[0],x.shape[1],-1)
@@ -33,12 +34,12 @@ class SPoC(nn.Module):
 
 
 class GeM(nn.Module):
-    def __init__(self,  p=3, eps=1e-6):
+    def __init__(self, outdim=256, p=3, eps=1e-6):
         super(GeM, self).__init__()
         self.p = nn.Parameter(torch.ones(1) * p)
         #self.p = p
         self.eps = eps
-        self.fc = nn.LazyLinear(256)
+        self.fc = nn.LazyLinear(outdim)
 
 
     def forward(self, x):
