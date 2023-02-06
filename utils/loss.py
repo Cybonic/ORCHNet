@@ -225,8 +225,7 @@ class LazyQuadrupletLoss():
     return(loss,{'p':ap,'n':an,'n_p':nr2h})
 
 
-
-class MeanLazyQuadrupletLoss():
+class InLazyQuadrupletLoss():
   def __init__(self, metric= 'L2', margin1 = 0.5 ,margin2 = 0.5 , eps=1e-8, **argv):
     
     #assert isinstance(margin,list) 
@@ -260,35 +259,37 @@ class MeanLazyQuadrupletLoss():
     # Anchor - positive
     a_torch,p_torch = totensorformat(a,p)
     ap = self.loss(a_torch, p_torch,dim=2)
-    ap = torch.mean(ap)
+    
     # Anchor - negative
     a_torch,n_torch  = totensorformat(a,n)
     neg_loss_array = self.loss(a_torch,n_torch,dim=2)
     # Hard negative
-    #n_hard_idx = [torch.argmin(neg_loss_array).cpu().numpy().tolist()] # get the negative with smallest distance (aka hard)
-    an = torch.mean(neg_loss_array)
+    n_hard_idx = [torch.argmin(neg_loss_array).cpu().numpy().tolist()] # get the negative with smallest distance (aka hard)
+    an = neg_loss_array[n_hard_idx]
     
     # Random negative (NR)
-    #n_negs    = n_torch.shape[0]
-    #idx_arr   = np.arange(n_negs)
-    #elig_neg  = np.setxor1d(idx_arr,n_hard_idx) # Remove the hard negative index from the negative array  
-    #n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
-    #dn_rand   = n_torch[n_rand_idx] # random negative descriptor
+    n_negs    = n_torch.shape[0]
+    idx_arr   = np.arange(n_negs)
+    elig_neg  = np.setxor1d(idx_arr,n_hard_idx) # Remove the hard negative index from the negative array  
+    n_rand_idx  = torch.randint(0,elig_neg.shape[0],(1,)).numpy().tolist()
+    dn_rand   = n_torch[n_rand_idx] # random negative descriptor
     
-    #nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
-    #n_random_hard_idx = [torch.argmin(nn_prime).cpu().numpy().tolist()] # get the negative with smallest distance w.r.t NR (aka NRH)
-    #nr2h = nn_prime[n_random_hard_idx] # get the smallest distance between NR and NRH
+    nn_prime= self.loss(n_torch[elig_neg],dn_rand,dim=2) # among the negatives select subset of eligibles, and compute the distance between NR and all negatives  
+    n_random_hard_idx = [torch.argmin(nn_prime).cpu().numpy().tolist()] # get the negative with smallest distance w.r.t NR (aka NRH)
+    nr2h = nn_prime[n_random_hard_idx] # get the smallest distance between NR and NRH
 
     # Compute first term
-    s1 = ap.squeeze() #- an.squeeze() + self.margin1
+    s1 = ap.squeeze() + 1/an.squeeze() #+ self.margin1
     first_term = torch.max(self.eps,s1).clamp(min=0.0)
     # Compute second term
-    #s2 = ap.squeeze() - nr2h.squeeze() + self.margin2
-    #second_term = torch.max(self.eps,s2).clamp(min=0.0)
+    s2 = ap.squeeze() - nr2h.squeeze() + self.margin2
+    second_term = torch.max(self.eps,s2).clamp(min=0.0)
     # compute loss
-    loss = first_term #+ second_term
+    loss = first_term + second_term
 
-    return(loss,{'p':ap,'n':an,'n_p':torch.tensor(0)})
+    return(loss,{'p':ap,'n':an,'n_p':nr2h})
+
+
 #==================================================================================================
 #
 # MetricLazyQuadrupletLoss

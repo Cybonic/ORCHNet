@@ -8,16 +8,16 @@ import torchvision.transforms as Tr
 from  torch.utils.data.sampler import SubsetRandomSampler
 import yaml
 import numpy as np
-import tqdm
+from tqdm import tqdm
 import torch
 
 
-ASEGMENTS = [   {'xmin':-15,'xmax':-9,'ymin':-49,'ymax':-3 },
-                {'xmin':-9,'xmax':-5,'ymin':-49,'ymax':-3 },
-                {'xmin':-5,'xmax':-2,'ymin':-49,'ymax':-3 },
-                {'xmin':-2,'xmax':2,'ymin':-49,'ymax':-3 },
+ASEGMENTS = [   {'xmin':-15,'xmax':-9,'ymin':-50,'ymax':-1 },
+                {'xmin':-9,'xmax':-5,'ymin':-50,'ymax':-1 },
+                {'xmin':-5,'xmax':-2,'ymin':-50,'ymax':-1 },
+                {'xmin':-2,'xmax':2,'ymin':-50,'ymax':-1 },
                 {'xmin':-15,'xmax':2,'ymin':-55,'ymax':-49 },
-                {'xmin':-15,'xmax':2,'ymin':-3,'ymax':5 }
+                {'xmin':-15,'xmax':2,'ymin':-1,'ymax':5 }
                 ]
 
 
@@ -48,38 +48,65 @@ def gen_ground_truth(   poses,
     anchor =   []
     positive = []
     select_pos_idx = np.arange(num_pos)
+    
     for i in ROI:
     
         _map_   = poses[:i,:]
         pose    = poses[i,:].reshape((1,-1))
         map_frame_idx  = indices[:i]
-        
-        dist_meter = np.linalg.norm(pose-_map_,axis=1)
+        dist_meter  = np.sqrt(np.sum((pose -_map_)**2,axis=1))
+        #dist_meter = np.linalg.norm(pose-_map_,axis=1)
 
         #dist= np.sqrt((pose[0]-_map_[:,0])**2 + (pose[1]-_map_[:,1])**2)
         dist = dist_meter/ np.max(dist_meter)
 
-        frame_dist = np.linalg.norm(i-map_frame_idx)
+        #frame_dist = np.linalg.norm(i-map_frame_idx)
         #frame_dist= np.sqrt((i-map_frame_idx)**2 + (i-map_frame_idx)**2)
-        frame_dist /= np.max(frame_dist)
+        #frame_dist /= np.max(frame_dist)
 
-        alpha = dist/frame_dist
+        #alpha = dist/frame_dist
         # Sort distance and get smallest  outside ROI 
-        sort_=np.argsort(alpha[:i-roi])
-        pos_idx = np.where(dist_meter[sort_] < pos_range)[0]
+        #sort_=np.argsort(alpha[:i-roi])
         
+        #pos_idx = np.where(dist_meter[sort_] < pos_range)[0]
+        pos_idx = np.where(dist_meter[:i-roi] < pos_range)[0]
+        
+        if len(pos_idx)>0:
+            # anchors=i
+            # positives = pos_idx
+            #print(len(pos))
+            
+            pa = poses[i].reshape(-1,2)
+            pp = poses[pos_idx].reshape(-1,2)
+            
+            an_labels, an_point_idx = get_roi_points(pa,ASEGMENTS)
+            #alabel = list(line_paa.keys())
+            pos_labels, pos_point_idx = get_roi_points(pp,ASEGMENTS)
+            # plabel = np.array(list(line_ppa.keys()))
+
+            boolean_sg = np.where(an_labels[0] == pos_labels)[0]
+            if len(boolean_sg):
+                pos = [pos_idx[pos_point_idx[idx]] for idx in boolean_sg][0]
+                min_sort = np.argsort(dist_meter[pos])
+                positive.append(pos[min_sort])
+                anchor.append(i)
+
         # Select only those positives that are in the same line then the anchor
-        #an_seg = get_roi_points(pose,ASEGMENTS)
+        #an_seg_bool = get_roi_points(pose,ASEGMENTS)
+        #an_seg = np.where(an_seg_bool==True)[0]
         #print(an_seg)
-        #pos_seg = get_roi_points(poses[pos_idx,:],ASEGMENTS)
-        #pos_idx_ref = [idx for idx, pos in zip(pos_idx,pos_seg) if pos in an_seg]
+
+        #pos_seg_bool = get_roi_points(poses[pos_idx,:],ASEGMENTS)
+        #pos_seg = np.where(pos_seg_bool==True)[0]
+        #pos_idx_ref = [idx for idx, pos in enumerate(pos_seg) if pos in an_seg]
         #print(pos_seg)
         # save
-        if  len(pos_idx)>0:
-            anchor.append(i)
-            positive.append([sort_[idx] for idx in pos_idx])
-        else: 
-            sort_=-1
+        #if  len(pos_idx)>0:
+        #    anchor.append(i)
+        #    #positive.append(sort_[pos_idx])
+        #    positive.append(pos_idx)
+        #else: 
+        #    sort_=-1
     
     # Negatives
     negatives= []
@@ -99,16 +126,25 @@ def gen_ground_truth(   poses,
 def get_roi_points(points,rois):
     points = points.reshape((-1,2))
     labels = []
-    for j,point in enumerate(points):
-        pointlabel = []
-        for i,roi in enumerate(rois):
-            roi_dx = ((point[0]>=roi['xmin']).astype(np.int8) * (point[0]<roi['xmax']).astype(np.int8) *
-                      (point[1]>=roi['ymin']).astype(np.int8) * (point[1]<roi['ymax']).astype(np.int8))
-            if roi_dx == 1:
-                pointlabel=i
-                break
-        labels.append(pointlabel)   
-    return labels
+    point_idx = []
+    for i,roi in enumerate(rois):
+        # 
+        xmin = (points[:,0]>=roi['xmin'])
+        xmax = (points[:,0]<roi['xmax'])
+        xx = np.logical_and(xmin, xmax)
+
+        ymin = (points[:,1]>=roi['ymin']) 
+        ymax = (points[:,1]<roi['ymax'])
+        yy = np.logical_and(ymin, ymax)
+        
+        selected = np.logical_and(xx, yy)
+        idx = np.where(selected==True)[0]
+        
+        if len(idx)>0:
+            labels.append(i)
+            point_idx.append(idx)
+   
+    return np.array(labels), np.array(point_idx)
 
 
 def get_point_cloud_files(dir):
@@ -261,11 +297,10 @@ class ORCHARDSEval(OrchardDataset):
         self.num_samples = self.point_cloud_files.shape[0]
         self.idx_universe = np.arange(self.num_samples)
 
-        #self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
-        self.poses = self._get_pose_()
-   
-        #assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
+        self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
 
+        self.poses = self._get_pose_()
+        #assert len(np.intersect1d(self.anchors,self.map_idx)) == 0, 'No indicies should be in both anchors and map'
         if self.mode == 'RAM':
             self.inputs = self.load_RAM()
 
@@ -537,7 +572,7 @@ class ORCHARDS():
         elif  split_mode == 'train-test':
             # train-test: train and test sets are from the same sequences, which is split randomly in two.
             # Before
-            train_size = 0.7
+            train_size = 0.8
             print('Train data set:', len(train_set))
             print("train-test split: " + str(train_size))
             # Random split
@@ -565,13 +600,13 @@ class ORCHARDS():
             test_set =  copy.copy(train_set)
 
             #train_set.comp_ground_truth(train_loader['ground_truth'])
-            train_set.load_subset(train_set.indices)
-            train_set = train_set.dataset
+            #train_set.load_subset(train_set.indices)
+            #train_set = train_set.dataset
 
             test_set.set_eval_mode(True)
             #test_set.comp_ground_truth(test_loader['ground_truth'])
-            test_set.dataset.load_subset(test_set.indices)
-            test_set = test_set.dataset
+            #test_set.dataset.load_subset(test_set.indices)
+            #test_set = test_set.dataset
         
         #print(test_set.indices)
         #print(train_set.indices)

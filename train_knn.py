@@ -57,7 +57,8 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         test_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
-                        split_mode    = 'train-test', 
+                        split_mode    = 'train-test',
+                        #split_mode    = 'same', 
                         #subsample     = 0.5
                         )
     
@@ -71,7 +72,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='SPoC_pointnet',
+      default='GeM_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -79,7 +80,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='PR-TrainF128P30k',
+      default='PR-TrainF128P0.5k',
       help='Directory to get the trained model.'
   )
 
@@ -105,7 +106,7 @@ if __name__ == '__main__':
       '--memory',
       type=str,
       required=False,
-      default='Disk',
+      default='RAM',
       choices=['Disk','RAM'],
       help='Directory to get the trained model.'
   )
@@ -165,7 +166,7 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'LazyQuadrupletLoss',
+      default = 'InLazyQuadrupletLoss',
       #choices = ['MetricLazyQuadrupletLoss','LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
@@ -180,7 +181,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 30000,
+      default = 5000,
       help='sampling points.'
   )
 
@@ -194,7 +195,6 @@ if __name__ == '__main__':
   torch.autograd.set_detect_anomaly(True)
   #force_cudnn_initialization()
   
-
   # open arch config file
   cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
   print("Opening data config file: %s" % cfg_file)

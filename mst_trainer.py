@@ -24,7 +24,8 @@ class Trainer(BaseTrainer):
                         iter_per_epoch,
                         device = 'cpu',
                         run_name = 'default',
-                        train_epoch_zero = False
+                        train_epoch_zero = False,
+                        eval_approach = 'place'
                         ):
 
         super(Trainer, self).__init__(model, resume, config, iter_per_epoch,run_name=run_name,device=device,train_epoch_zero=train_epoch_zero)
@@ -46,8 +47,12 @@ class Trainer(BaseTrainer):
         self.batch_size = 1
         
         from eval_knn import PlaceRecognition
-        self.eval_approach = PlaceRecognition(self.model ,self.val_loader,25,'L2',device)
-
+        from eval_relocal import Relocalization
+        windows = 600
+        if eval_approach == "place":
+            self.eval_approach = PlaceRecognition(self.model ,self.val_loader,self.top_cand_retrieval,windows,'L2',device)
+        elif(eval_approach == "reloc"):
+            self.eval_approach = Relocalization(self.model ,self.val_loader,self.top_cand_retrieval,windows,'L2',device)
         
 
     def _reset_metrics(self):

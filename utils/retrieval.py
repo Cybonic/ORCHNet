@@ -162,19 +162,6 @@ def sim_relocalize(descriptors_dict, top_cand = 1,sim_thres = 0.5, text = '', bu
 
 
 
-def euclidean_knnv2(anchors, map, top_cand = 10,range_value = None, text=''):
-    '''
-    
-    '''
-    retrieval = knn_retrieval(metric='euclidean',range = range_value, top_cand = top_cand)
-    retrieval.fit(map)
-
-    scores,winners = retrieval.k_inference(anchors)
-
-    return(winners,scores)
-
-
-
 
 def retrieval_knn(query_dptrs,map_dptrs, top_cand,metric):
     

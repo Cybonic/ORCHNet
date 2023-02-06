@@ -21,7 +21,7 @@ import yaml
 from shutil import copyfile
 import os
 import shutil
-import tqdm
+from tqdm import tqdm
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import signal, sys
 from sklearn.neighbors import NearestNeighbors
@@ -42,6 +42,7 @@ from networks import model
 from utils.utils import generate_descriptors
 from utils.relocalization import relocal_metric,comp_gt_table,sim_relocalize
 from utils.viz import myplot
+from utils.retrieval import retrieval_knn
 #from dataloader.utils import load_dataset
 
 
@@ -127,46 +128,65 @@ def _get_top_cand(pred_idx,pred_scores,pos_thrs=0.5,top=1):
         return(top_cand_hat)
 
 
-class relocalization():
-    def __init__(self,loader,model, device = 'cpu', descriptor_path=None):
+class Relocalization():
+    def __init__(self,model,loader, top_cand, windows=500, metric = 'L2', device = 'cpu'):
 
         self.loader   = loader
         self.model    = model.to(device)
         self.pose   = loader.dataset.get_pose()
         self.anchor = loader.dataset.get_anchor_idx()
-        self.all_idx = loader.dataset.get_idx_universe()
-        
+        self.database = loader.dataset.get_idx_universe()
+        self.top_cand = top_cand
         self.gt_loop = loader.dataset.get_GT_Map()
         self.device = device
-        self.path_to_descriptors = descriptor_path
+        self.true_loop = np.array([np.where(self.gt_loop[i]==1)[0] for i in range(self.gt_loop.shape[0])])
     
-    
+        self.FLAG_USE_DESCRIPTORS = False
+        self.metric = metric
+        self.windows = windows
+
+    def load_descriptors(self,path):
+        assert os.path.isfile(path)
+        self.loaded_descriptors = torch.load(self.path_to_descriptors)
 
 
-    def relocalize(self,sim_thres=0.5, burn_in=10, range_thres=1,top_cand=1):
+    def run(self,sim_thres=0.5,burn_in=600):
 
         # self.gt_table = comp_gt_table(self.pose,self.anchor,range_thres)
 
         self.model.eval()
-        self.true_loop_idx = np.array([np.where(self.gt_loop[i]==1)[0] for i in range(self.gt_loop.shape[0])])
-        
-        if self.path_to_descriptors == None or not os.path.isfile(self.path_to_descriptors):
-            descriptors = generate_descriptors(self.model,self.loader,self.device)
+        top_max = max(self.top_cand)
+
+        if self.FLAG_USE_DESCRIPTORS:
+            descriptors = self.loaded_descriptors
         else:
-            descriptors = torch.load(self.path_to_descriptors)
+            descriptors = generate_descriptors(self.model,self.loader,self.device)
+            
+        # None Retrieval Area
+        pred_loops = []
+        target_loops = self.true_loop
+        descriptor_idx = list(descriptors.keys())
+        
+        num_samples = self.database.shape[0]
+        pred_scores = []
+        for anchor in tqdm(range(burn_in,num_samples),'Relocalization'):
+    
+            database_idx = self.database[:anchor-self.windows] # 
+            query_dptrs = np.array([descriptors[i] for i in [anchor] if i in descriptor_idx])
+            map_dptrs   = np.array([descriptors[i] for i in database_idx if i in descriptor_idx])
 
-        max_top = np.max(top_cand)
-        self.pred_idx, self.pred_scores  = sim_relocalize(  descriptors,
-                                                            top_cand = max_top, 
-                                                            burn_in  = burn_in, 
-                                                            sim_thres = sim_thres,
-                                                            )
+            # Retrieve loops 
+            retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = top_max, metric = self.metric)
+            pred_loops.append(retrieved_loops[0])
+            pred_scores.append(scores[0])
 
+        self.pred_loops = np.array(pred_loops)
+        self.pred_scores = np.array(pred_scores)
         overall_scores = {}
 
-        for top in top_cand:
-            top_cand_hat = _get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thres,top=top)
-            scores = relocal_metric(top_cand_hat,self.true_loop_idx)
+        for top in self.top_cand:
+            top_cand_hat = _get_top_cand(self.pred_loops,self.pred_scores,pos_thrs=sim_thres,top=top)
+            scores = relocal_metric(top_cand_hat,target_loops)
             overall_scores[top] = scores
             print(scores)
         
@@ -175,8 +195,8 @@ class relocalization():
     
     def plot(self, sim_thrs = 0.5, record_gif=False, top=25, name= 'relocalization.gif'):
 
-        top_cand_hat = _get_top_cand(self.pred_idx,self.pred_scores,pos_thrs=sim_thrs,top=top)
-        tp_idx,fp_idx = comp_eval_idx(top_cand_hat,self.true_loop_idx)
+        top_cand_hat = _get_top_cand(self.pred_loops,self.pred_scores,pos_thrs=sim_thrs,top=top)
+        tp_idx,fp_idx = comp_eval_idx(top_cand_hat,self.true_loop)
 
         plot = myplot(delay = 0.001)
         if record_gif == True:
@@ -230,7 +250,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/RelocTrainF128P10k/LazyQuadrupletLoss_L2/autumn/SPoC_pointnet/best_model.pth',
+      default='checkpoints/PR-TrainF128P30k/LazyQuadrupletLoss_L2/autumn/SPoC_pointnet/best_model.pth',
       help='Directory to get the trained model.'
   )
 
@@ -391,26 +411,26 @@ if __name__ == '__main__':
   
  
  ###################################################################### 
-  eval = relocalization(
+  eval = Relocalization(
           model  = model_,
           loader = loader.get_val_loader(),
           device = FLAGS.device,
-          descriptor_path = descriptor_path
-
+          top_cand= [1,5,25]
           )
   
   sim_thres = 0.1 
   # Compute performance
-  results = eval.relocalize(sim_thres = sim_thres,
-                            top_cand = list(range(1,25,1)),
-                            burn_in=600)
+  results = eval.run(   sim_thres,
+                        burn_in  = 600
+                        )
   
+
   columns = ['top','recall','precision']
   rows = [[t,v['recall'],v['precision']] for t,v in results.items()]
   import pandas as pd
 
   # Save Results
-  top_cand = 20
+  top_cand = 25
   score =  round(results[top_cand]['recall'],3)
   
   df = pd.DataFrame(rows,columns = columns)
@@ -422,7 +442,6 @@ if __name__ == '__main__':
   if not os.path.isdir(results_dir):
     os.makedirs(results_dir)
 
-  
   file_results = os.path.join(results_dir,'reloc' + file_name + '.csv')
   df.to_csv(file_results)
   

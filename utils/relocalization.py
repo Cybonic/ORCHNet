@@ -7,7 +7,7 @@ import utils.loss as loss_lib
 from .loss import cosine_loss,totensorformat 
 
 def sim_knn(query,map,top_cand,metric='cosine_loss'):
-    metric_fun = loss_lib.__dict__[metric]
+    metric_fun = loss_lib.get_distance_function(metric)
     scores,winner = [],[]
     for q in query:
         q_torch,map_torch = totensorformat(q.reshape(1,-1),map) 
@@ -22,11 +22,14 @@ def sim_knn(query,map,top_cand,metric='cosine_loss'):
 
 
 
-def sim_relocalize(descriptors_dict, top_cand = 1,sim_thres = 0.5, text = '', burn_in = 50):
+def sim_relocalize(descriptors_dict, top_cand = 1,sim_thres = 0.5, text = '', burn_in = 50,metric = 'L2'):
     '''
     
     
     '''
+
+    
+
     num_dscptor = len(descriptors_dict)
 
     #retrieval = knn_retrieval(metric='euclidean',range = None, top_cand = top_cand)
@@ -53,10 +56,10 @@ def sim_relocalize(descriptors_dict, top_cand = 1,sim_thres = 0.5, text = '', bu
         dsctor_map = descriptors[base_idx_]
         
         #retrieval.fit(dsctor_map)
-        query = np.array(descriptors[i])
+        query = np.array(descriptors[i]).reshape(1,-1)
         # Fit map
         # Skip until burn-in 
-        winners,scores = sim_knn(query.reshape(1,-1),dsctor_map,top_cand=top_cand)
+        winners,scores = sim_knn(query,dsctor_map,top_cand=top_cand,metric = metric)
         #  only consider as true if score > similarity threshold 
         scores = scores[0]
         winners = global_index[base_idx_[winners[0]]]

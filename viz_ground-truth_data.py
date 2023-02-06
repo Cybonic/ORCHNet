@@ -10,6 +10,7 @@ from matplotlib.figure import Figure
 from tqdm import tqdm
 import yaml
 from dataloader.ORCHARDS import OrchardDataset
+import dataloader.ORCHARDS as ORCHARDS 
 #from scipy.spatial import distanc
 
 
@@ -133,7 +134,7 @@ if __name__ == "__main__":
     print("[INF] cfg: " + cfg_file)
     print("[INF] Reading poses from : " + args.pose_file)
 
-    ground_truth = {'pos_range':2, # Loop Threshold [m]
+    ground_truth = {'pos_range':10, # Loop Threshold [m]
                     'neg_range': 10,
                     'num_neg':20,
                     'num_pos':50,
@@ -141,13 +142,13 @@ if __name__ == "__main__":
                     'roi':500}
     
     dataset = OrchardDataset(root,'',seq,sync = True,ground_truth=ground_truth)
+    
     table = dataset._get_gt_()
     true_loop = np.array([np.where(line==1)[0] for line in table])
     
     xy = dataset._get_pose_()
     n_point = xy.shape[0]
     
-
 
     viz_overlap(xy,true_loop)
 

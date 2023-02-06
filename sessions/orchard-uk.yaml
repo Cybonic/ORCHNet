@@ -17,13 +17,13 @@ train_loader:
   data:
     dataset: ''
     sequence: 'autumn'
-    aug: False
+    aug: True
     modality: 'range'
     max_points: 10000
   
   ground_truth: 
-    pos_range: 2 # Loop Threshold [m]
-    neg_range: 10
+    pos_range: 10 # Loop Threshold [m]
+    neg_range: 15
     num_neg: 20
     num_pos: 1
     warmupitrs: 600 # Number of frames to ignore at the beguinning
@@ -43,7 +43,7 @@ val_loader:
     max_points: 10000
 
   ground_truth: 
-    pos_range: 2 # Loop Threshold [m]
+    pos_range: 5 # Loop Threshold [m]
     neg_range: 10
     num_neg: 0
     num_pos: 50
@@ -98,7 +98,7 @@ loss:
 
 trainer:
   iter_per_epoch: 1
-  epochs: 1000
+  epochs: 50
   report_val: 1        # every x epochs, report validation set
   save_period: 1
   log_dir: "saved/"
@@ -112,7 +112,7 @@ trainer:
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.01
+    lr: 0.0001
     weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 
@@ -129,6 +129,6 @@ CosineAnnealingWarmRestarts:
 ReduceLROnPlateau:
   mode: 'min' #['min','max'] (str)
   factor: 0.01
-  patience: 5 # Number of epochs with no improvement after which learning rate will be reduced. 
+  patience: 10 # Number of epochs with no improvement after which learning rate will be reduced. 
   min_lr: 0.000001
 

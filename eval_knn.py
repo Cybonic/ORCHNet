@@ -65,13 +65,15 @@ def load_dataset(inputs,session,max_points=50000,debug=False):
 
 
 class PlaceRecognition():
-    def __init__(self,model,loader,top_cand,eval_metric,device):
+    def __init__(self,model,loader,top_cand,windows,eval_metric,device):
 
         self.eval_metric = eval_metric
         self.model  = model.to(device)
         self.loader = loader
-        self.max_top = top_cand
+       
         self.device = device
+        self.top_cand = top_cand
+        self.windows = windows
 
         # Eval data
         try:
@@ -88,35 +90,36 @@ class PlaceRecognition():
 
         self.true_loop = np.array([np.where(line==1)[0] for line in table])
         
-        
 
     def get_descriptors(self):
         return self.descriptors
         
-    def run(self,nra=500):
+    def run(self):
         
+        assert isinstance(self.top_cand,list)
+
+        self.max_top = max(self.top_cand)
         self.descriptors = self.generate_descriptors(self.model,self.loader)
         # None Retrieval Area
         pred_loops = []
         target_loops= []
         target_loops = self.true_loop[self.anchors]
-        descriptor_idx = list(self.descriptors .keys())
+        descriptor_idx = list(self.descriptors.keys())
+        
         for anchor in tqdm(self.anchors,"Retrivel"):
-            database_idx = self.database[:anchor-nra] # 
-
+            database_idx = self.database[:anchor-self.windows] # 
+            # Split descriptors
             query_dptrs =  np.array([self.descriptors[i] for i in [anchor] if i in descriptor_idx ])
             map_dptrs = np.array([self.descriptors[i] for i in database_idx if i in descriptor_idx ])
             # Retrieve loops 
             retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = self.max_top, metric = self.eval_metric)
             pred_loops.append(retrieved_loops[0])
-            
-
         # Evaluate retrieval
         pred_loops = np.array(pred_loops)
         target_loops = np.array(target_loops)
 
         overall_scores = {}
-        for top in range(1,self.max_top):
+        for top in self.top_cand:
             scores = retrieve_eval(pred_loops,target_loops, top = top)
             overall_scores[top]=scores
         # Post on tensorboard
