@@ -72,7 +72,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='GeM_pointnet',
+      default='MuHA_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -80,7 +80,8 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='PR-TrainF128P0.5k',
+      default='SolvingF2048D2048',
+      #default='PR-TrainF1024P0.5kD512v2A0.01P1-downsale512_10m',
       help='Directory to get the trained model.'
   )
 
@@ -115,7 +116,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=50,
+      default=100,
       help='Directory to get the trained model.'
   )
 
@@ -166,7 +167,7 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'InLazyQuadrupletLoss',
+      default = 'LazyQuadrupletLoss',
       #choices = ['MetricLazyQuadrupletLoss','LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
       help='Directory to get the trained model.'
   )
@@ -181,7 +182,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 5000,
+      default = 10000,
       help='sampling points.'
   )
 

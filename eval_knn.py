@@ -105,7 +105,7 @@ class PlaceRecognition():
         target_loops= []
         target_loops = self.true_loop[self.anchors]
         descriptor_idx = list(self.descriptors.keys())
-        
+        one_percent = len(self.database)- self.windows
         for anchor in tqdm(self.anchors,"Retrivel"):
             database_idx = self.database[:anchor-self.windows] # 
             # Split descriptors
@@ -113,6 +113,8 @@ class PlaceRecognition():
             map_dptrs = np.array([self.descriptors[i] for i in database_idx if i in descriptor_idx ])
             # Retrieve loops 
             retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = self.max_top, metric = self.eval_metric)
+            if len(retrieved_loops)==0:
+                continue
             pred_loops.append(retrieved_loops[0])
         # Evaluate retrieval
         pred_loops = np.array(pred_loops)

@@ -38,13 +38,13 @@ train_loader:
 val_loader:
   data:
     dataset: ''
-    sequence: 'summer'
+    sequence: 'autumn'
     modality: 'range' # ['range',projection,bev]'intensity','density','height','bev']
     max_points: 10000
 
   ground_truth: 
-    pos_range: 5 # Loop Threshold [m]
-    neg_range: 10
+    pos_range: 2 # Loop Threshold [m]
+    neg_range: 17
     num_neg: 0
     num_pos: 50
     warmupitrs: 600 # Number of frames to ignore at the beguinning
@@ -59,7 +59,7 @@ model:
   type: 'AttVLAD_resnet50'
   minibatch_size: 10
   pretrained_backbone: True
-  output_dim: 256
+  output_dim: 2048
   use_tnet: False
   #in_channels: 1
 
@@ -99,12 +99,12 @@ loss:
 trainer:
   iter_per_epoch: 1
   epochs: 50
-  report_val: 1        # every x epochs, report validation set
+  report_val: 3      # every x epochs, report validation set
   save_period: 1
   log_dir: "saved/"
   save_dir: "checkpoints/"
   monitor: "max recall" # [off, max mIoU]
-  val_per_epochs: 1
+  val_per_epochs: 3
   eval_metric: 'L2'
   results_dir: "/media/tiago/BIG/Orchards/temp/"
 
@@ -112,7 +112,7 @@ trainer:
 optimizer:
   type: "AdamW" #[RMSprop,Adam,SGD]
   args:
-    lr: 0.0001
+    lr: 0.01
     weight_decay: 0.0005
   lr_scheduler: "ReduceLROnPlateau"
 

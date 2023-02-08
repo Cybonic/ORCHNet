@@ -560,7 +560,7 @@ class ORCHARDS():
         if split_mode == 'cross-val':
             # Cross-validation. Train and test sets are from different sequences
             
-            train_set.comp_ground_truth(train_loader['ground_truth'])   
+            #train_set.comp_ground_truth(train_loader['ground_truth'])   
             test_set = ORCHARDSEval( root =  kwargs['root'],
                                                 mode = kwargs['mode'],
                                                 #num_subsamples = num_subsamples,
@@ -572,7 +572,7 @@ class ORCHARDS():
         elif  split_mode == 'train-test':
             # train-test: train and test sets are from the same sequences, which is split randomly in two.
             # Before
-            train_size = 0.8
+            train_size = 0.6
             print('Train data set:', len(train_set))
             print("train-test split: " + str(train_size))
             # Random split

@@ -149,6 +149,23 @@ class Relocalization():
         assert os.path.isfile(path)
         self.loaded_descriptors = torch.load(self.path_to_descriptors)
 
+    def save_loop_pred_to_csv(self,file):
+
+
+        df_pred = pd.DataFrame(self.pred_loops)
+        df_score = pd.DataFrame(self.pred_scores)
+    
+        
+        results_dir = os.path.join('predictions','reloc','predictions')
+        if not os.path.isdir(results_dir):
+            os.makedirs(results_dir)
+
+        file_results_ped = os.path.join(results_dir,file+'_loops.csv')
+        file_results_score = os.path.join(results_dir,file+'_scores.csv')
+
+        df_pred.to_csv(file_results_ped)
+        df_score.to_csv(file_results_score)
+
 
     def run(self,sim_thres=0.5,burn_in=600):
 
@@ -250,7 +267,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/PR-TrainF128P30k/LazyQuadrupletLoss_L2/autumn/SPoC_pointnet/best_model.pth',
+      default='checkpoints/RelocTrainF128P10k-LazyQuadrupletLoss_L2-autumn-SPoC_pointnet-recall@20-45.pth',
       help='Directory to get the trained model.'
   )
 
@@ -418,7 +435,7 @@ if __name__ == '__main__':
           top_cand= [1,5,25]
           )
   
-  sim_thres = 0.1 
+  sim_thres = 0.5 
   # Compute performance
   results = eval.run(   sim_thres,
                         burn_in  = 600
@@ -427,8 +444,13 @@ if __name__ == '__main__':
 
   columns = ['top','recall','precision']
   rows = [[t,v['recall'],v['precision']] for t,v in results.items()]
-  import pandas as pd
+  import pandas as pd 
+  
+  top_cand = 25
+  score =  round(results[top_cand]['recall'],3)
 
+  file = f'{FLAGS.modality}-{FLAGS.model}_{score}'
+  eval.save_loop_pred_to_csv(file)
   # Save Results
   top_cand = 25
   score =  round(results[top_cand]['recall'],3)

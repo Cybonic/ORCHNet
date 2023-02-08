@@ -1,6 +1,7 @@
 
 from .backbone import resnet,mobilenetv2,pointnet
 from .AttDLNet import AttVLADHead,VLADHead,AttDLNet
+from .heads.muha import MuHA
 from .heads.pooling import GeM,SPoC,MAC
 from .utils import IntermediateLayerGetter
 
@@ -39,29 +40,33 @@ def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
     
     inplanes = 1024
     
-    backbone = pointnet.PointNet_features(dim_k=inplanes,use_tnet=argv['use_tnet'], scale=1)
+    backbone = pointnet.PointNet_features(dim_k=inplanes,use_tnet=argv['use_tnet'], scale=2)
 
     # Attention
     #if name == 'AttVLAD':
     #    classifier = AttVLADHead(in_dim=inplanes,out_dim=output_dim, max_samples=max_samples)
     if name.endswith('VLAD'):
-        classifier = VLADHead(in_dim=inplanes,out_dim=output_dim,max_samples=max_samples)
+        AggHead = VLADHead(in_dim=inplanes,out_dim=output_dim,max_samples=max_samples)
     elif name.endswith('GeM'):
-        classifier = GeM(outdim=output_dim)
+        AggHead = GeM(outdim=output_dim)
     elif name.endswith('SPoC'):
-        classifier = SPoC(outdim=output_dim)
+        AggHead = SPoC(outdim=output_dim)
     elif name.endswith('MAC'):
-        classifier = MAC(outdim=output_dim)
+        AggHead = MAC(outdim=output_dim)
+    elif name.endswith('MuHA'):
+        AggHead = MuHA(outdim=output_dim)
+
     from .AttDLNet import Attention
     import torch
     
     if name.startswith('Att'):
-        classifier = torch.nn.Sequential(
+        AggHead = torch.nn.Sequential(
                   Attention(in_dim=inplanes,downscaler = 32, norm_layer=False),
-                  classifier
+                  AggHead
     )
     # Global Features
-    model = AttDLNet(backbone, classifier)
+    
+    model = AttDLNet(backbone, AggHead)
     return model
 
 
@@ -82,6 +87,10 @@ def _load_model(arch_type, backbone, output_dim,output_stride, pretrained_backbo
 # ================================================================
 # PointNet
 # ================================================================
+def MuHA_pointnet(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('MuHA', 'pointnet', output_dim,**argv)
+
 def MAC_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('GeM', 'pointnet', output_dim,**argv)
@@ -109,6 +118,10 @@ def AttSPoC_pointnet(output_dim=128,**argv):
 def AttGeM_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('AttGeM', 'pointnet', output_dim,**argv)
+
+def MuANet_pointnet(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('', 'pointnet', output_dim,**argv)
 # ================================================================
 # ResNet50
 # ================================================================

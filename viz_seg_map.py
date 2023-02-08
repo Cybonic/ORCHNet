@@ -17,7 +17,7 @@ if __name__=='__main__':
     
     ground_truth = {
         'pos_range': 10, # Loop Threshold [m]
-        'neg_range': 10,
+        'neg_range': 17,
         'num_neg': 20,
         'num_pos': 50,
         'warmupitrs': 600, # Number of frames to ignore at the beguinning
@@ -91,7 +91,7 @@ if __name__=='__main__':
         scale[positives] = 100
 
         if i % 20 == 0:
-            mplot.update_plot(poses[:i,0],poses[:i,1],offset=2,zoom=0,color=color,scale=scale)
+            mplot.update_plot(poses[:i+1,0],poses[:i+1,1],offset=2,zoom=0,color=color,scale=scale)
 
 
 

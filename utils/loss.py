@@ -259,7 +259,8 @@ class InLazyQuadrupletLoss():
     # Anchor - positive
     a_torch,p_torch = totensorformat(a,p)
     ap = self.loss(a_torch, p_torch,dim=2)
-    
+    #hard_pos = [torch.argmax(ap).cpu().numpy().tolist()] 
+    #ap = ap[hard_pos]
     # Anchor - negative
     a_torch,n_torch  = totensorformat(a,n)
     neg_loss_array = self.loss(a_torch,n_torch,dim=2)
@@ -279,7 +280,8 @@ class InLazyQuadrupletLoss():
     nr2h = nn_prime[n_random_hard_idx] # get the smallest distance between NR and NRH
 
     # Compute first term
-    s1 = ap.squeeze() + 1/an.squeeze() #+ self.margin1
+    alpha = 0.01
+    s1 = (1-alpha)*ap.squeeze() + alpha *(1/(an.squeeze())) + self.margin1
     first_term = torch.max(self.eps,s1).clamp(min=0.0)
     # Compute second term
     s2 = ap.squeeze() - nr2h.squeeze() + self.margin2

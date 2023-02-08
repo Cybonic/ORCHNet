@@ -134,8 +134,8 @@ if __name__ == "__main__":
     print("[INF] cfg: " + cfg_file)
     print("[INF] Reading poses from : " + args.pose_file)
 
-    ground_truth = {'pos_range':10, # Loop Threshold [m]
-                    'neg_range': 10,
+    ground_truth = {'pos_range':15, # Loop Threshold [m]
+                    'neg_range': 17,
                     'num_neg':20,
                     'num_pos':50,
                     'warmupitrs': 600, # Number of frames to ignore at the beguinning
