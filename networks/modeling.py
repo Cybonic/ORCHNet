@@ -18,21 +18,25 @@ def _place_resnet(name, backbone_name, output_dim, output_stride, max_samples,pr
                                     replace_stride_with_dilation=replace_stride_with_dilation, 
                                     in_channels = in_ch)
     
-    inplanes = 256
+    inplanes = 2048
     return_layers = {'layer4': 'out'}
     # Attention
     if name == 'AttVLAD':
-        classifier = AttVLADHead(in_dim=inplanes,out_dim=output_dim,**argv)
+        AggHead = AttVLADHead(in_dim=inplanes,out_dim=output_dim,**argv)
     elif name == 'VLAD':
-        classifier = VLADHead(in_dim=inplanes,out_dim=output_dim,max_samples=2048) # the number of samples are the output of the CNN
+        AggHead = VLADHead(in_dim=inplanes,out_dim=output_dim,max_samples=2048) # the number of samples are the output of the CNN
     elif name == 'GeM':
-        classifier = GeM()
+        AggHead = GeM(outdim=output_dim)
     elif name == 'SPoC':
-        classifier = SPoC()
+        AggHead = SPoC(outdim=output_dim)
+    elif name.endswith('MAC'):
+        AggHead = MAC(outdim=output_dim)
+    elif name.endswith('MuHA'):
+        AggHead = MuHA(outdim=output_dim)
 
     backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
     # Global Features
-    model = AttDLNet(backbone, classifier)
+    model = AttDLNet(backbone, AggHead)
     return model
 
 
@@ -65,8 +69,9 @@ def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
                   AggHead
     )
     # Global Features
-    
+    from .MultiAggNet import MuANet
     model = AttDLNet(backbone, AggHead)
+    #model = MuANet(backbone,outdim=output_dim)
     return model
 
 
@@ -119,9 +124,6 @@ def AttGeM_pointnet(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('AttGeM', 'pointnet', output_dim,**argv)
 
-def MuANet_pointnet(output_dim=128,**argv):
-    # Pretrained model has to be False, because there is no pretrained model available
-    return _load_model('', 'pointnet', output_dim,**argv)
 # ================================================================
 # ResNet50
 # ================================================================
@@ -138,3 +140,7 @@ def AttVLAD_resnet50( output_dim=128, **argv):
 
 def VLAD_resnet50( output_dim=128,**argv):
     return _load_model('VLAD', 'resnet50', output_dim,**argv)
+
+def MuHA_resnet50(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('MuHA', 'resnet50', output_dim,**argv)

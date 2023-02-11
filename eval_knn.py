@@ -98,14 +98,20 @@ class PlaceRecognition():
         
         assert isinstance(self.top_cand,list)
 
-        self.max_top = max(self.top_cand)
+        
         self.descriptors = self.generate_descriptors(self.model,self.loader)
         # None Retrieval Area
         pred_loops = []
         target_loops= []
         target_loops = self.true_loop[self.anchors]
         descriptor_idx = list(self.descriptors.keys())
-        one_percent = len(self.database)- self.windows
+        # Compute number of samples to retrieve correspondin to 1% 
+        database_size = len(self.database)- self.windows
+        one_percent = int(round(database_size/100,0))
+        # Append 1% to candidates to retrieve
+        self.top_cand.append(one_percent)
+        # Get the biggest value
+        self.max_top = max(self.top_cand)
         for anchor in tqdm(self.anchors,"Retrivel"):
             database_idx = self.database[:anchor-self.windows] # 
             # Split descriptors
@@ -113,8 +119,8 @@ class PlaceRecognition():
             map_dptrs = np.array([self.descriptors[i] for i in database_idx if i in descriptor_idx ])
             # Retrieve loops 
             retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = self.max_top, metric = self.eval_metric)
-            if len(retrieved_loops)==0:
-                continue
+            #if len(retrieved_loops)==0:
+            #    continue
             pred_loops.append(retrieved_loops[0])
         # Evaluate retrieval
         pred_loops = np.array(pred_loops)

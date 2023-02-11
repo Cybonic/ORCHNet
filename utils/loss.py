@@ -233,7 +233,7 @@ class InLazyQuadrupletLoss():
 
     self.margin1 =  margin1 
     self.margin2 = margin2
-    self.metric = metric
+    self.metric  = metric
     self.eps = torch.tensor(eps)
     # Loss types
     self.loss = get_distance_function(metric)
@@ -290,6 +290,50 @@ class InLazyQuadrupletLoss():
     loss = first_term + second_term
 
     return(loss,{'p':ap,'n':an,'n_p':nr2h})
+
+
+class InLazyTripletLoss():
+  def __init__(self, metric= 'L2', margin=0.2 , eps=1e-8,**argv):
+
+    self.margin = margin
+    self.metric = metric
+    self.eps = torch.tensor(eps)
+    
+    # Loss types
+    self.loss = get_distance_function(metric)
+
+  def __str__(self):
+    return type(self).__name__ + '_' + self.metric
+ 
+  def __call__(self,descriptor = {},**args):
+    
+    #a_pose,p_pose,n_pose = pose[0],pose[1],pose[2]
+    a,p,n = descriptor['a'],descriptor['p'],descriptor['n']
+
+    assert a.shape[0] == 1
+    assert p.shape[0] == 1, 'positives samples must be 1'
+
+    if len(a.shape) < len(n.shape): 
+        a = a.unsqueeze(dim=0)
+    if len(p.shape) < len(n.shape): 
+        p = p.unsqueeze(dim=0)
+    if len(n.shape) < len(a.shape):
+        n = n.unsqueeze(dim=0)
+    
+    a_torch,p_torch = totensorformat(a,p)
+    ap = self.loss(a_torch, p_torch,dim=2).squeeze()
+    #ap = torch.__dict__[self.reduction](pos_loss_array)
+    a_torch,n_torch  = totensorformat(a,n)
+    neg_loss_array = self.loss(a_torch,n_torch,dim=2)
+    
+    alpha = 0.1
+
+    an = torch.min(neg_loss_array) # get the lowest negative distance (aka hard)
+    s = (1-alpha)*ap + (alpha)*(1/an) #+ self.margin
+    value = torch.max(self.eps,s)
+    loss = value.clamp(min=0.0)
+
+    return(loss,{'p':ap,'n':an})
 
 
 #==================================================================================================

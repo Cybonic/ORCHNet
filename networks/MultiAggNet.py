@@ -6,11 +6,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 import numpy as np
-from .heads.netvlad import NetVLADLoupe
-from .utils import *
+#from .heads.netvlad import NetVLADLoupe
+
 #from .utils import TripletLoss
 import torch.nn.init as init
 from .heads.pooling import *
+from .utils import *
 
 class MuANet(nn.Module):
   def __init__(self,backbone,hiddendim=64,outdim=256):

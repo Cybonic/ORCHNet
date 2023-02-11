@@ -72,7 +72,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='MuHA_pointnet',
+      default='VLAD_resnet50',
       help='Directory to get the trained model.'
   )
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
       '--experiment', '-e',
       type=str,
       required=False,
-      default='SolvingF2048D2048',
+      default='FINETUNE_RESNETD512',
       #default='PR-TrainF1024P0.5kD512v2A0.01P1-downsale512_10m',
       help='Directory to get the trained model.'
   )
@@ -107,7 +107,7 @@ if __name__ == '__main__':
       '--memory',
       type=str,
       required=False,
-      default='RAM',
+      default='Disk',
       choices=['Disk','RAM'],
       help='Directory to get the trained model.'
   )
@@ -116,7 +116,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=100,
+      default=50,
       help='Directory to get the trained model.'
   )
 
@@ -124,7 +124,7 @@ if __name__ == '__main__':
       '--modality',
       type=str,
       required=False,
-      default='pcl', # [pcl,bev, projection]
+      default='bev', # [pcl,bev, projection]
       help='Directory to get the trained model.'
   )
 
@@ -153,7 +153,7 @@ if __name__ == '__main__':
       '--mini_batch_size',
       type=int,
       required=False,
-      default=50, #  Max size (based on the negatives)
+      default=20, #  Max size (based on the negatives)
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -182,7 +182,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 10000,
+      default = 500,
       help='sampling points.'
   )
 
@@ -283,7 +283,7 @@ if __name__ == '__main__':
           iter_per_epoch = 10, # Verify this!!!
           device = FLAGS.device,
           run_name = run_name,
-          train_epoch_zero = False 
+          train_epoch_zero = True 
           )
   
   trainer.Train()

@@ -12,14 +12,34 @@ from tqdm import tqdm
 import torch
 
 
-ASEGMENTS = [   {'xmin':-15,'xmax':-9,'ymin':-50,'ymax':-1 },
+AUTUMN = [   {'xmin':-15,'xmax':-9,'ymin':-50,'ymax':-1 },
                 {'xmin':-9,'xmax':-5,'ymin':-50,'ymax':-1 },
                 {'xmin':-5,'xmax':-2,'ymin':-50,'ymax':-1 },
                 {'xmin':-2,'xmax':2,'ymin':-50,'ymax':-1 },
                 {'xmin':-15,'xmax':2,'ymin':-55,'ymax':-49 },
                 {'xmin':-15,'xmax':2,'ymin':-1,'ymax':5 }
                 ]
+SUMMER = [ {'xmin':-39,'xmax':-1,'ymax':7,'ymin':4.5},
+            {'xmin':-39,'xmax':-1,'ymax':4.5,'ymin':1},
+            {'xmin':-39,'xmax':-1,'ymax':1,'ymin':-2},
+            {'xmin':-2,'xmax':2,'ymax':6.5,'ymin':-1},
+            {'xmin':-45,'xmax':-39,'ymax':6.5,'ymin':-1}]
 
+def summer_align(xy):
+    import math
+    xy = xy[:,0:2].copy().transpose()
+    myx = np.mean(xy,axis=1).reshape(2,1)
+
+    #print(xy)
+    xyy= xy - myx
+    theta = math.radians(-4)
+
+    rot_matrix = np.array([[math.cos(theta), -math.sin(theta)],
+                          [ math.sin(theta),  math.cos(theta)]])
+
+    new_xx = rot_matrix.dot(xyy) + myx
+
+    return(new_xx.transpose())
 
 PREPROCESSING = Tr.Compose([Tr.ToTensor()])
 
@@ -31,7 +51,8 @@ def subsampler(universe,num_sub_samples):
 
 
 
-def gen_ground_truth(   poses, 
+def gen_ground_truth(   poses,
+                        sequence,
                         pos_range= 0.05, # Loop Threshold [m]
                         neg_range=10,
                         num_neg = 10,
@@ -48,7 +69,13 @@ def gen_ground_truth(   poses,
     anchor =   []
     positive = []
     select_pos_idx = np.arange(num_pos)
-    
+
+    if sequence=='summer':
+        poses = summer_align(poses)
+        bbox = SUMMER
+    elif sequence=='autumn':
+        bbox = AUTUMN
+
     for i in ROI:
     
         _map_   = poses[:i,:]
@@ -75,14 +102,12 @@ def gen_ground_truth(   poses,
             # anchors=i
             # positives = pos_idx
             #print(len(pos))
+            n_coord=  poses[i].shape[0]
+            pa = poses[i].reshape(-1,n_coord)
+            pp = poses[pos_idx].reshape(-1,n_coord)
             
-            pa = poses[i].reshape(-1,2)
-            pp = poses[pos_idx].reshape(-1,2)
-            
-            an_labels, an_point_idx = get_roi_points(pa,ASEGMENTS)
-            #alabel = list(line_paa.keys())
-            pos_labels, pos_point_idx = get_roi_points(pp,ASEGMENTS)
-            # plabel = np.array(list(line_ppa.keys()))
+            an_labels, an_point_idx = get_roi_points(pa,bbox)
+            pos_labels, pos_point_idx = get_roi_points(pp,bbox)
 
             boolean_sg = np.where(an_labels[0] == pos_labels)[0]
             if len(boolean_sg):
@@ -124,7 +149,7 @@ def gen_ground_truth(   poses,
 
 
 def get_roi_points(points,rois):
-    points = points.reshape((-1,2))
+    #points = points.reshape((-1,2))
     labels = []
     point_idx = []
     for i,roi in enumerate(rois):
@@ -234,7 +259,7 @@ class OrchardDataset():
             self.pose =  self.pose[sync_pose_idx]
        
         
-        self.anchors,self.positives,self.negatives = gen_ground_truth(self.pose,**ground_truth)
+        self.anchors,self.positives,self.negatives = gen_ground_truth(self.pose,seq,**ground_truth)
         n_points = self.pose.shape[0]
         self.table = np.zeros((n_points,n_points))
         for a,p in zip(self.anchors,self.positives):
@@ -292,7 +317,10 @@ class ORCHARDSEval(OrchardDataset):
         self.modality = modality
         self.mode     = mode
         self.preprocessing = PREPROCESSING
-        self.line_rois = ASEGMENTS
+        if sequence == 'autumn':
+            self.line_rois = AUTUMN
+        else:
+            self.line_rois = SUMMER
 
         self.num_samples = self.point_cloud_files.shape[0]
         self.idx_universe = np.arange(self.num_samples)
@@ -382,7 +410,7 @@ class ORCHARDSTriplet(OrchardDataset):
         self.aug_flag = aug
         self.mode = mode
         self.eval_mode = False
-        self.line_rois = ASEGMENTS
+        #self.line_rois = ASEGMENTS
 
         self.preprocessing = PREPROCESSING
         verbose = True

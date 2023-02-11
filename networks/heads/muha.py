@@ -30,19 +30,20 @@ class MuHA(nn.Module):
 
   def forward(self,x):
     
+    #spoc =  F.normalize(self.spoc(x),dim=1)
+    #gem  =  F.normalize(self.gem(x),dim=1)
+    #mac  =  F.normalize(self.mac(x),dim=1)
+    
     spoc =  self.spoc(x)
     gem  =  self.gem(x)
     mac  =  self.mac(x)
-    #spoc =  self.spoc(x),dim=1)
-    #gem  =  self.gem(x),dim=1)
-    #mac  =  self.mac(x),dim=1)
-
+    
     z    =  torch.stack([spoc,gem,mac],dim=1)
 
     fu = torch.matmul(self.fusion,z)
-    y  =  F.normalize(fu,dim=1)
+    #y  =  F.normalize(fu,dim=1)
 
-    return y
+    return fu
 
 
 

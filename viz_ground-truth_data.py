@@ -107,7 +107,7 @@ if __name__ == "__main__":
                                     help=' dataset root directory .'
                                     )
     parser.add_argument('--seq',    
-                                    default  = 'autumn',
+                                    default  = 'summer',
                                     type = str)
     parser.add_argument('--plot',default  = True ,type = bool)
     parser.add_argument('--loop_thresh',default  = 1 ,type = float)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     print("[INF] cfg: " + cfg_file)
     print("[INF] Reading poses from : " + args.pose_file)
 
-    ground_truth = {'pos_range':15, # Loop Threshold [m]
+    ground_truth = {'pos_range':10, # Loop Threshold [m]
                     'neg_range': 17,
                     'num_neg':20,
                     'num_pos':50,

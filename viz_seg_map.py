@@ -13,15 +13,15 @@ if __name__=='__main__':
     print("Opening session config file: %s" % session_cfg_file)
     SESSION = yaml.safe_load(open(session_cfg_file, 'r'))
     root = SESSION['root']
-    sequence = 'autumn'
+    sequence = 'summer'
     
     ground_truth = {
         'pos_range': 10, # Loop Threshold [m]
         'neg_range': 17,
         'num_neg': 20,
         'num_pos': 50,
-        'warmupitrs': 600, # Number of frames to ignore at the beguinning
-        'roi': 500
+        'warmupitrs': 100, # Number of frames to ignore at the beguinning
+        'roi': 50
      }
     loader = ORCHARDSEval(root=root,dataset='',sequence=sequence,sync=True,modality='pcl',ground_truth=ground_truth)
 
@@ -70,9 +70,9 @@ if __name__=='__main__':
             pa = poses[i].reshape(-1,2)
             pp = poses[pos_idx].reshape(-1,2)
             
-            an_labels, an_point_idx = get_roi_points(pa,ASEGMENTS)
+            an_labels, an_point_idx = get_roi_points(pa,SUMMER)
             #alabel = list(line_paa.keys())
-            pos_labels, pos_point_idx = get_roi_points(pp,ASEGMENTS)
+            pos_labels, pos_point_idx = get_roi_points(pp,SUMMER)
             # plabel = np.array(list(line_ppa.keys()))
 
             boolean_sg = np.where(an_labels[0] == pos_labels)[0]

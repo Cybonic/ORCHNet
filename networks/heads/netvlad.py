@@ -49,8 +49,10 @@ class NetVLADLoupe(nn.Module):
 
     def forward(self, x):
         #x = x.transpose(1, 3).contiguous()
-        x = x.view((-1, self.max_samples, self.feature_size))
-        
+        batch,features,points,_ = x.shape
+        self.max_samples = points
+        #x = x.view((-1, self.max_samples, self.feature_size))
+        x = x.view((-1, points, features))
         activation = torch.matmul(x, self.cluster_weights)
         
         if self.add_batch_norm:

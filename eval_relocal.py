@@ -118,12 +118,19 @@ def color_retrieval_on_map(num_samples,anchors,tp,fp):
     return(c,s)
 
 def _get_top_cand(pred_idx,pred_scores,pos_thrs=0.5,top=1):
-        top_pred_cand_idx = pred_idx[:,:top]
-        top_pred_sores = pred_scores[:,:top]
+        #top_pred_cand_idx = pred_idx[:,:top]
+        #top_pred_sores = pred_scores[:,:top]
         top_cand_hat = []
 
-        for c,s in zip(top_pred_cand_idx,top_pred_sores):
-            c_hat = c[(s<pos_thrs).any() and (s>0).any()]
+        for c,s in zip(pred_idx,pred_scores):
+            if len(c)>0:
+                c = c[:top]
+                s = s[:top]
+                c_hat = c[(s<pos_thrs).any() and (s>0).any()]
+            else:
+                c_hat = []
+
+
             top_cand_hat.append(c_hat[0] if len(c_hat)>0 else [])
         return(top_cand_hat)
 
@@ -180,12 +187,14 @@ class Relocalization():
             descriptors = generate_descriptors(self.model,self.loader,self.device)
             
         # None Retrieval Area
-        pred_loops = []
+        pred_loops = [[] for x in range(burn_in)]
         target_loops = self.true_loop
         descriptor_idx = list(descriptors.keys())
         
+        # 
         num_samples = self.database.shape[0]
-        pred_scores = []
+        pred_scores = [[] for x in range(burn_in)]
+        
         for anchor in tqdm(range(burn_in,num_samples),'Relocalization'):
     
             database_idx = self.database[:anchor-self.windows] # 
@@ -340,7 +349,6 @@ if __name__ == '__main__':
       default='pcl', # [pcl,bev, projection]
       help='Directory to get the trained model.'
   )
-
 
   FLAGS, unparsed = parser.parse_known_args()
 
