@@ -134,6 +134,9 @@ def SPoC_resnet50(output_dim=128,**argv):
 def GeM_resnet50(output_dim=128,**argv):
     # Pretrained model has to be False, because there is no pretrained model available
     return _load_model('GeM', 'resnet50', output_dim,**argv)
+def MAC_resnet50(output_dim=128,**argv):
+    # Pretrained model has to be False, because there is no pretrained model available
+    return _load_model('MAC', 'resnet50', output_dim,**argv)
 
 def AttVLAD_resnet50( output_dim=128, **argv):
     return _load_model('AttVLAD', 'resnet50', output_dim,**argv)

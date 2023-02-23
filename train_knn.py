@@ -57,6 +57,7 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         test_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
+                        #split_mode    = 'cross-val',
                         split_mode    = 'train-test',
                         #split_mode    = 'same', 
                         #subsample     = 0.5
@@ -72,7 +73,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='VLAD_resnet50',
+      default='GeM_pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -107,7 +108,7 @@ if __name__ == '__main__':
       '--memory',
       type=str,
       required=False,
-      default='Disk',
+      default='RAM',
       choices=['Disk','RAM'],
       help='Directory to get the trained model.'
   )
@@ -116,7 +117,7 @@ if __name__ == '__main__':
       '--epoch',
       type=int,
       required=False,
-      default=50,
+      default=30,
       help='Directory to get the trained model.'
   )
 
@@ -124,7 +125,7 @@ if __name__ == '__main__':
       '--modality',
       type=str,
       required=False,
-      default='bev', # [pcl,bev, projection]
+      default='pcl', # [pcl,bev, projection]
       help='Directory to get the trained model.'
   )
 
@@ -153,7 +154,7 @@ if __name__ == '__main__':
       '--mini_batch_size',
       type=int,
       required=False,
-      default=20, #  Max size (based on the negatives)
+      default=30, #  Max size (based on the negatives)
       help='Directory to get the trained model.'
   )
   parser.add_argument(

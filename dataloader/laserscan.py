@@ -384,7 +384,8 @@ class LaserData(LaserScan):
     xx_idx = np.int_(PointCloud_frac[:, 0])
     yy_idx = np.int_(PointCloud_frac[:, 1])
 
-    heightMap[xx_idx,yy_idx] = PointCloud_frac[:, 2]
+    #heightMap[xx_idx,yy_idx] = PointCloud_frac[:, 2]
+    heightMap = PointCloud_frac[:, 2]
 
     # Intensity Map & DensityMap
     intensityMap = np.zeros((Height, Width))
@@ -408,18 +409,20 @@ class LaserData(LaserScan):
       intensityMap = (np.clip(intensityMap,a_min = 0, a_max = 100)/100) *255
       intensityMap = np.clip(intensityMap,a_min=0,a_max=255).astype(np.uint8)
       # Height
-      local_max_height = heightMap.max()
-      local_min_height = heightMap.min()
+      #local_max_height = heightMap.max()
+      #local_min_height = heightMap.min()
 
       #self.max_height = float(np.abs(self.roi['zmax'] - self.roi['zmin']))
-      max_height = float(np.abs(local_min_height - local_max_height))
+      #max_height = float(local_min_height - local_max_height)
 
       heightMap = np.clip(heightMap,a_max = zmax,a_min = zmin)
-      heightMap = ((heightMap-local_min_height)/max_height)*255
-      heightMap = np.clip(heightMap,a_min=0,a_max=255).astype(np.uint8)
+      heightMap = (((heightMap-zmin)/float(zmax-zmin))*255).astype(np.uint8)
+      heightMap_out = np.zeros((Height, Width))
+      heightMap_out[xx_idx,yy_idx] = heightMap
+      #heightMap = np.clip(heightMap,a_min=0,a_max=255).astype(np.uint8)
     
     density = np.expand_dims(densityMap,axis=-1)
-    height  = np.expand_dims(heightMap,axis=-1)
+    height  = np.expand_dims(heightMap_out,axis=-1)
     intensity = np.expand_dims(intensityMap,axis=-1)
 
     return {'height': height, 'density': density, 'intensity': intensity}

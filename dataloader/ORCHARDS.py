@@ -23,7 +23,7 @@ SUMMER = [ {'xmin':-39,'xmax':-1,'ymax':7,'ymin':4.5},
             {'xmin':-39,'xmax':-1,'ymax':4.5,'ymin':1},
             {'xmin':-39,'xmax':-1,'ymax':1,'ymin':-2},
             {'xmin':-2,'xmax':2,'ymax':6.5,'ymin':-1},
-            {'xmin':-45,'xmax':-39,'ymax':6.5,'ymin':-1}]
+            {'xmin':-45,'xmax':-38,'ymax':6.5,'ymin':-1}]
 
 def summer_align(xy):
     import math
@@ -351,7 +351,7 @@ class ORCHARDSEval(OrchardDataset):
     def load_RAM(self):
         img   = {}       
         for i in tqdm(self.idx_universe,"Loading to RAM"):
-            data  = self._get_representation_(i)
+            data  = self._get_modality_(i)
             img[i]=data#.astype(np.uint8)
         return img
 

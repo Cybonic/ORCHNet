@@ -252,7 +252,7 @@ if __name__ == '__main__':
       '--model', '-m',
       type=str,
       required=False,
-      default='SPoC_pointnet',
+      default='MuHA_pointnet',
       help='Directory to get the trained model.'
   )
   
@@ -276,7 +276,7 @@ if __name__ == '__main__':
       '--resume', '-p',
       type=str,
       required=False,
-      default='checkpoints/RelocTrainF128P10k-LazyQuadrupletLoss_L2-autumn-SPoC_pointnet-recall@20-45.pth',
+      default='checkpoints/RESULTS-A0.01-F1024D2048-ROI-10-P20000-InLazyTripletLoss_L2-autumn-MuHA_pointnet.pth',
       help='Directory to get the trained model.'
   )
 
@@ -317,7 +317,7 @@ if __name__ == '__main__':
       '--sequence',
       type=str,
       required=False,
-      default='summer',
+      default='autumn',
       help='Directory to get the trained model.'
   )
 
@@ -339,7 +339,7 @@ if __name__ == '__main__':
       '--max_points',
       type=int,
       required=False,
-      default = 10000,
+      default = 20000,
       help='sampling points.'
   )
   parser.add_argument(
@@ -457,7 +457,7 @@ if __name__ == '__main__':
   top_cand = 25
   score =  round(results[top_cand]['recall'],3)
 
-  file = f'{FLAGS.modality}-{FLAGS.model}_{score}'
+  file = f'{FLAGS.sequence}{FLAGS.modality}-{FLAGS.model}_{score}'
   eval.save_loop_pred_to_csv(file)
   # Save Results
   top_cand = 25
@@ -482,7 +482,7 @@ if __name__ == '__main__':
 
   gif_name = os.path.join(reloc_dir,file_name+'.gif')
 
-  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=False, name = gif_name)
+  eval.plot(sim_thrs = sim_thres, top = top_cand, record_gif=True, name = gif_name)
 
 
   

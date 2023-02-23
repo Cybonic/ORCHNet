@@ -326,10 +326,16 @@ class InLazyTripletLoss():
     a_torch,n_torch  = totensorformat(a,n)
     neg_loss_array = self.loss(a_torch,n_torch,dim=2)
     
-    alpha = 0.1
+    alpha = 0.01
 
     an = torch.min(neg_loss_array) # get the lowest negative distance (aka hard)
     s = (1-alpha)*ap + (alpha)*(1/an) #+ self.margin
+    
+    #if ap > an:
+    #    s = ap - an + self.margin
+    #else:
+    #    s = ap + alpha*(1/an)
+
     value = torch.max(self.eps,s)
     loss = value.clamp(min=0.0)
 

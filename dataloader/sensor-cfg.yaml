@@ -29,7 +29,7 @@ autumn:
       ymin: -15
       ymax:  15
       zmin: -2.73
-      zmax: 5
+      zmax: 2
 
   RP: # HDL-32E  
     fov_up: 4.67

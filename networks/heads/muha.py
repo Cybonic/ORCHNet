@@ -21,6 +21,8 @@ class MuHA(nn.Module):
     self.spoc = SPoC(outdim=outdim)
     self.gem  = GeM(outdim=outdim)
     self.mac  = MAC(outdim=outdim)
+    self.vap  = VaP(outdim=outdim)
+    #self.vlad = NetVLADLoupe()
     
     self.fusion= torch.nn.Parameter(torch.zeros(1,3))
     # Initialization
@@ -36,6 +38,7 @@ class MuHA(nn.Module):
     
     spoc =  self.spoc(x)
     gem  =  self.gem(x)
+    #gem  = self.vap(x)
     mac  =  self.mac(x)
     
     z    =  torch.stack([spoc,gem,mac],dim=1)

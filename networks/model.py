@@ -43,8 +43,10 @@ class ModelWrapper(nn.Module):
 
 
     def forward(self,pcl,):
+        
         # Mini Batch training due to memory constrains
         if self.training == False:
+            pcl = pcl.type(torch.cuda.FloatTensor)
             pred = self.model(pcl)
             #pred = F.softmax(pred,dim=1) # Normalize descriptors such that ||D||2 = 1
             return(pred)
@@ -73,6 +75,7 @@ class ModelWrapper(nn.Module):
             if pclt.shape[0]==1: # drop last
                 continue
 
+            pclt = pclt.type(torch.cuda.FloatTensor)
             pred = self.model(pclt)
             #pred = F.softmax(pred,dim=1) # Normalize descriptors such that ||D||2 = 1
             # sum_values = torch.sum(pred,dim=1) # Used to check if descriptors are normalized 
