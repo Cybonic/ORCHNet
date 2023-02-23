@@ -20,7 +20,7 @@ import yaml
 import os
 import torch 
 
-from networks.AttDLNet import *
+from networks.orchnet import *
 
 from dataloader.ORCHARDS import ORCHARDS
 from trainer import Trainer

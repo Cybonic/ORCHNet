@@ -1,11 +1,15 @@
+#!/usr/bin/env python3
+# This file is covered by the LICENSE file in the root of this project.
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+#from ..utils import *
+
 '''
 Code taken from  https://github.com/slothfulxtx/TransLoc3D 
 '''
 
-from re import X
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 class MAC(nn.Module):
     def __init__(self,outdim=256, **rgv):
@@ -18,6 +22,7 @@ class MAC(nn.Module):
         x = torch.max(x, dim=-1, keepdim=False)[0]
         return self.fc(x)
 
+
 class SPoC(nn.Module):
     def __init__(self, outdim=256,**argv):
         super().__init__()
@@ -27,7 +32,6 @@ class SPoC(nn.Module):
         # Return (batch_size, n_features) tensor
         x = x.view(x.shape[0],x.shape[1],-1)
         return self.fc(torch.mean(x, dim=-1, keepdim=False)) # Return (batch_size, n_features) tensor
-
 
 
 class GeM(nn.Module):
@@ -50,4 +54,37 @@ class GeM(nn.Module):
         x = torch.pow(x,1./self.p)
         x = self.fc(x)
         return x # Return (batch_size, n_features) tensor
+
+# MultiHead Aggregation
+class MultiHead(nn.Module):
+  def __init__(self,outdim=256,init_std=0.1):
+    super(MultiHead,self).__init__()
+    self.spoc = SPoC(outdim=outdim)
+    self.gem  = GeM(outdim=outdim)
+    self.mac  = MAC(outdim=outdim)
+    
+    self.fusion= nn.Parameter(torch.zeros(1,3))
+    # Initialization
+    nn.init.normal_(self.fusion.data, mean=0, std=init_std)
+    print(self.fusion.data)
+
+
+  def forward(self,x):
+    
+    spoc =  self.spoc(x)
+    gem  =  self.gem(x)
+    mac  =  self.mac(x)
+    z    =  torch.stack([spoc,gem,mac],dim=1)
+    fu = torch.matmul(self.fusion,z)
+
+    return fu
+
+
+
+
+
+
+
+
+
 

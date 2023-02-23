@@ -1,7 +1,7 @@
 
 from .backbone import resnet,mobilenetv2,pointnet
-from .AttDLNet import AttVLADHead,VLADHead,AttDLNet
-from .heads.muha import MuHA
+from .orchnet import AttVLADHead,VLADHead,AttDLNet
+from .multihead import MuHA
 from .heads.pooling import GeM,SPoC,MAC
 from .utils import IntermediateLayerGetter
 
@@ -60,7 +60,7 @@ def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
     elif name.endswith('MuHA'):
         AggHead = MuHA(outdim=output_dim)
 
-    from .AttDLNet import Attention
+    from .orchnet import Attention
     import torch
     
     if name.startswith('Att'):

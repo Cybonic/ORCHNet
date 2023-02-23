@@ -10,7 +10,6 @@ from .heads.netvlad import NetVLADLoupe
 from .utils import *
 
 
-
 class ORCHNet(nn.Module):
   def __init__(self,backbone,classifier):
     super(AttDLNet,self).__init__()
