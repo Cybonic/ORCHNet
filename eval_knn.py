@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
-# This file is covered by the LICENSE file in the root of this project.
 
-
-# Getting latend space using Hooks :
-#  https://towardsdatascience.com/the-one-pytorch-trick-which-you-should-know-2d5e9c1da2ca
-
-# Binary Classification
-# https://jbencook.com/cross-entropy-loss-in-pytorch/
-
-
-'''
-
-Version: 3.1 
- - pretrained model is automatically loaded based on the model and session names 
- 
-'''
 import argparse
 import yaml
 from shutil import copyfile
@@ -28,14 +13,10 @@ from tqdm import tqdm
 from networks.AttDLNet import *
 
 
-from datetime import datetime
-
-import random
-from torch.utils.data import DataLoader, random_split
-from utils.utils import dump_info
+from torch.utils.data import random_split
 from dataloader.ORCHARDS import ORCHARDS
 
-from mst_trainer import Trainer
+from trainer import Trainer
 from networks import model
 from utils.retrieval import retrieval_knn
 from utils.metric import retrieve_eval

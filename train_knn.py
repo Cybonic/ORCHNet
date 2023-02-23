@@ -17,23 +17,13 @@ Version: 3.1
 '''
 import argparse
 import yaml
-from shutil import copyfile
 import os
-
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-
 import torch 
 
 from networks.AttDLNet import *
 
-
-
-
-
-from torch.utils.data import DataLoader, random_split
-from utils.utils import dump_info
 from dataloader.ORCHARDS import ORCHARDS
-from mst_trainer import Trainer
+from trainer import Trainer
 from networks import model
 from utils import loss as losses
 
@@ -46,6 +36,7 @@ def force_cudnn_initialization():
 
 def load_dataset(dataset,session,memory,max_points=None,debug=False):
 
+    # To get Windows or ubuntu paths
     if os.sep == '\\':
         root_dir = 'root_ws'
     else:
@@ -57,12 +48,8 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         test_loader    = session['val_loader'],
                         mode          = memory,
                         sensor        = sensor_cfg,
-                        #split_mode    = 'cross-val',
-                        split_mode    = 'train-test',
-                        #split_mode    = 'same', 
-                        #subsample     = 0.5
+                        split_mode    = 'train-test', # ['train-test','cross-val']
                         )
-    
     
     return(loader)
 
@@ -82,7 +69,6 @@ if __name__ == '__main__':
       type=str,
       required=False,
       default='FINETUNE_RESNETD512',
-      #default='PR-TrainF1024P0.5kD512v2A0.01P1-downsale512_10m',
       help='Directory to get the trained model.'
   )
 
@@ -99,8 +85,6 @@ if __name__ == '__main__':
       type=str,
       required=False,
       default='None',
-              #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/range-rerecord_sparce-AttVLAD_resnet50-0.87.pth',
-              #'/home/tiago/Dropbox/research-projects/orchards-uk/src/AttDLNet/checkpoints/bev-rerecord_sparce-AttVLAD_resnet50-0.54.pth',
       help='Directory to get the trained model.'
   )
 
@@ -256,11 +240,8 @@ if __name__ == '__main__':
   loss_type  = SESSION['loss']['type']
   loss_param = SESSION['loss']['args']
 
-  if FLAGS.loss.startswith('LazyTripletplus') or FLAGS.loss.startswith('MetricLazyQuadrupletLoss') or  FLAGS.loss.startswith('MSTMatchLoss'):
-    loss_type = FLAGS.loss.split('_')[0]
-    loss_param['version'] = FLAGS.loss.split('_')[-1]
-
   loss = losses.__dict__[loss_type](**loss_param,device = FLAGS.device)
+  
   print("*"*30)
   print(f'Loss: {loss}')
   print("*"*30)
