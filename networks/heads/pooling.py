@@ -7,28 +7,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-class VaP(nn.Module):
-    def __init__(self,outdim=256, **rgv):
-        super().__init__()
-        self.fc = nn.LazyLinear(outdim)
-        #self.fc = nn.Sequential( nn.LazyLinear(outdim),
-        #            torch.nn.BatchNorm1d(outdim, momentum=0.1),
-        #            torch.nn.ReLU())
-
-    def forward(self, x):
-        # Return (batch_size, n_features) tensor
-        x = x.view(x.shape[0],x.shape[1],-1)
-        return self.fc(torch.var(x, dim=-1, keepdim=False)) # Return (batch_size, n_features) tensor
-       
-
 class MAC(nn.Module):
     def __init__(self,outdim=256, **rgv):
         super().__init__()
         self.fc = nn.LazyLinear(outdim)
-        #self.fc = nn.Sequential( nn.LazyLinear(outdim),
-        #            torch.nn.BatchNorm1d(outdim, momentum=0.1),
-        #            torch.nn.ReLU())
 
     def forward(self, x):
         # Return (batch_size, n_features) tensor
@@ -36,15 +18,11 @@ class MAC(nn.Module):
         x = torch.max(x, dim=-1, keepdim=False)[0]
         return self.fc(x)
 
-
-
 class SPoC(nn.Module):
     def __init__(self, outdim=256,**argv):
         super().__init__()
         self.fc = nn.LazyLinear(outdim)
-        #self.fc = nn.Sequential( nn.LazyLinear(outdim),
-        #            torch.nn.BatchNorm1d(outdim, momentum=0.1),
-        #            torch.nn.ReLU())
+
     def forward(self, x):
         # Return (batch_size, n_features) tensor
         x = x.view(x.shape[0],x.shape[1],-1)
