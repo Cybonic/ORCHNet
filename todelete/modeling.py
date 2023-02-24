@@ -1,9 +1,9 @@
 
-from .backbone import resnet,mobilenetv2,pointnet
-from .orchnet import AttVLADHead,VLADHead,AttDLNet
-from .multihead import MuHA
+from .backbone import resnet,pointnet
+from ..networks.orchnet import AttVLADHead,VLADHead,AttDLNet
+from ..networks.multihead import MuHA
 from .heads.pooling import GeM,SPoC,MAC
-from .utils import IntermediateLayerGetter
+from ..networks.utils import IntermediateLayerGetter
 
 def _place_resnet(name, backbone_name, output_dim, output_stride, max_samples,pretrained_backbone,**argv):
 
@@ -14,8 +14,8 @@ def _place_resnet(name, backbone_name, output_dim, output_stride, max_samples,pr
     # Backbone
     in_ch = argv.pop('in_channels')
     backbone = resnet.__dict__[backbone_name](
-                                    pretrained=pretrained_backbone,
-                                    replace_stride_with_dilation=replace_stride_with_dilation, 
+                                    pretrained = pretrained_backbone,
+                                    replace_stride_with_dilation = replace_stride_with_dilation, 
                                     in_channels = in_ch)
     
     inplanes = 2048
@@ -60,7 +60,7 @@ def _place_pointnet(name, backbone, output_dim,max_samples,**argv):
     elif name.endswith('MuHA'):
         AggHead = MuHA(outdim=output_dim)
 
-    from .orchnet import Attention
+    from ..networks.orchnet import Attention
     import torch
     
     if name.startswith('Att'):

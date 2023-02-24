@@ -24,6 +24,8 @@ from networks.orchnet import *
 
 from dataloader.ORCHARDS import ORCHARDS
 from trainer import Trainer
+from networks import orchnet
+
 from networks import model
 from utils import loss as losses
 
@@ -57,10 +59,10 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser("./infer.py")
 
   parser.add_argument(
-      '--model', '-m',
+      '--backbone', '-m',
       type=str,
       required=False,
-      default='GeM_pointnet',
+      default='resnet50',
       help='Directory to get the trained model.'
   )
 
@@ -109,7 +111,7 @@ if __name__ == '__main__':
       '--modality',
       type=str,
       required=False,
-      default='pcl', # [pcl,bev, projection]
+      default='bev', # [pcl,bev]
       help='Directory to get the trained model.'
   )
 
@@ -152,15 +154,7 @@ if __name__ == '__main__':
       '--loss',
       type=str,
       required=False,
-      default = 'LazyQuadrupletLoss',
-      #choices = ['MetricLazyQuadrupletLoss','LazyTriplet_plus','LazyTripletLoss','LazyQuadrupletLoss'],
-      help='Directory to get the trained model.'
-  )
-  parser.add_argument(
-      '--loss_alpha',
-      type=float,
-      required=False,
-      default = 0.5,
+      default = 'LazyTripletLoss',
       help='Directory to get the trained model.'
   )
   parser.add_argument(
@@ -173,8 +167,8 @@ if __name__ == '__main__':
 
   FLAGS, unparsed = parser.parse_known_args()
   
-  # Configuration conditions that have to be met
-  assert not (FLAGS.modality=='bev' and FLAGS.model.endswith('pointnet')), 'BEV modality does not work with pointnet'
+  # Configuration conditions that must be met
+  assert not (FLAGS.modality=='bev' and FLAGS.backbone.endswith('pointnet')), 'BEV modality does not work with pointnet'
   assert not (FLAGS.modality=='pcl' and  'resnet' in FLAGS.model), 'PCL modality does not work with resnet'
   
   torch.cuda.empty_cache()
@@ -195,10 +189,9 @@ if __name__ == '__main__':
   SESSION['val_loader']['batch_size'] = FLAGS.batch_size
   SESSION['train_loader']['data']['modality'] = FLAGS.modality
   SESSION['val_loader']['data']['modality'] = FLAGS.modality
-  SESSION['model']['type'] =  FLAGS.model
+  SESSION['model']['type'] =  FLAGS.backbone
   SESSION['trainer']['epochs'] =  FLAGS.epoch
   SESSION['loss']['type'] = FLAGS.loss
-  SESSION['loss']['args']['alpha'] = FLAGS.loss_alpha
 
   SESSION['train_loader']['data']['max_points'] = FLAGS.max_points
   SESSION['val_loader']['data']['max_points'] = FLAGS.max_points
@@ -215,7 +208,7 @@ if __name__ == '__main__':
   print("Batch Size : ", str(SESSION['val_loader']['batch_size']))
   print("Max Points: " + str(SESSION['val_loader']['data']['max_points']))
   print("\n========== MODEL =========")
-  print("Model : ", FLAGS.model)
+  print("Backbone : ", FLAGS.backbone)
   print("Resume: ", FLAGS.loss)
   print("Loss: ", FLAGS.resume)
   print("MiniBatch Size: ", str(SESSION['model']['minibatch_size']))
@@ -232,9 +225,9 @@ if __name__ == '__main__':
   torch.manual_seed(0)
   np.random.seed(0)
   ###################################################################### 
+  
   # Load Dataset
   orchard_loader = load_dataset(FLAGS.dataset,SESSION,FLAGS.memory,debug = FLAGS.debug)
-  
   
   # Get Loss parameters
   loss_type  = SESSION['loss']['type']
@@ -250,22 +243,28 @@ if __name__ == '__main__':
   modality = FLAGS.modality + '_param'
   # Load the model
   SESSION[modality]['max_samples'] = FLAGS.max_points # For VLAD one as to define the number of samples
-  model_ = model.ModelWrapper(**SESSION['model'],loss= loss, **SESSION[modality])
+
+  param = {**SESSION[modality]}
+  param = {'in_channels':3,'featdim': 1024,'outdim':2048}
+  model_ = ORCHNet(backbone_name='resnet50',**param)
+
+  model_wrapper = model.ModelWrapper(model_,loss = loss,)
+
   
   run_name = {  'dataset': str(SESSION['train_loader']['data']['sequence']),
                 'experiment':os.path.join(FLAGS.experiment,str(loss)), 
-                'model': FLAGS.model
+                'model': FLAGS.backbone
                 }
 
   trainer = Trainer(
-          model  = model_,
+          model  = model_wrapper,
           resume = FLAGS.resume,
           config = SESSION,
           loader = orchard_loader,
           iter_per_epoch = 10, # Verify this!!!
           device = FLAGS.device,
           run_name = run_name,
-          train_epoch_zero = True 
+          train_epoch_zero = False 
           )
   
   trainer.Train()

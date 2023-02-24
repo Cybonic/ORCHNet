@@ -6,17 +6,12 @@ from shutil import copyfile
 import os
 os.environ['NUMEXPR_NUM_THREADS'] = '8'
 
-from sklearn.neighbors import NearestNeighbors
-from torch import optim
 import torch 
 from tqdm import tqdm
-from networks.AttDLNet import *
+from networks.orchnet import *
 
-
-from torch.utils.data import random_split
 from dataloader.ORCHARDS import ORCHARDS
 
-from trainer import Trainer
 from networks import model
 from utils.retrieval import retrieval_knn
 from utils.metric import retrieve_eval

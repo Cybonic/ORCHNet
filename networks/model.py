@@ -1,14 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from networks import modeling 
-import torchmetrics
 import os
 import math
 
 
 class ModelWrapper(nn.Module):
-    def __init__(self,  type,
+    def __init__(self,  model,
                         loss        = None,
                         output_dim  = 256, 
                         minibatch_size = 3, 
@@ -24,10 +22,12 @@ class ModelWrapper(nn.Module):
         self.minibatch_size=minibatch_size
         self.device = device
         self.batch_counter = 0 
-        self.model = modeling.__dict__[type](output_dim   = output_dim, 
-                                            output_stride = 4, 
-                                            pretrained_backbone = pretrained_backbone,
-                                            **args )
+        self.model = model
+        
+        #self.model = modeling.__dict__[type](output_dim   = output_dim, 
+        #                                    output_stride = 4, 
+        #                                    pretrained_backbone = pretrained_backbone,
+        #                                    **args )
 
 
     def mean_grad(self):

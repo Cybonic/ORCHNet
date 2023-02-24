@@ -3,12 +3,7 @@ from cmath import nan
 from base.base_trainer import BaseTrainer
 from tqdm import tqdm  
 import numpy as np
-
-#from utils.viz import plot_retrieval_on_map
-import torch
-from utils.loss import L2_np 
-from PIL import Image
-import os
+from eval_knn import PlaceRecognition
 
 # ===================================================================================================================
 #       
@@ -24,8 +19,7 @@ class Trainer(BaseTrainer):
                         iter_per_epoch,
                         device = 'cpu',
                         run_name = 'default',
-                        train_epoch_zero = False,
-                        eval_approach = 'place'
+                        train_epoch_zero = False
                         ):
 
         super(Trainer, self).__init__(model, resume, config, iter_per_epoch,run_name=run_name,device=device,train_epoch_zero=train_epoch_zero)
@@ -44,15 +38,12 @@ class Trainer(BaseTrainer):
 
         self.train_metrics = None #StreamSegMetrics(len(labels))
         self.val_metrics = None #StreamSegMetrics(len(labels))
-        self.batch_size = 1
+        self.batch_size = 1 # 
         
-        from eval_knn import PlaceRecognition
-        from eval_relocal import Relocalization
-        windows = 600
-        if eval_approach == "place":
-            self.eval_approach = PlaceRecognition(self.model ,self.val_loader,self.top_cand_retrieval,windows,'L2',device)
-        elif(eval_approach == "reloc"):
-            self.eval_approach = Relocalization(self.model ,self.val_loader,self.top_cand_retrieval,windows,'L2',device)
+        window = 600 # Avoid the nearby frames
+
+        self.eval_approach = PlaceRecognition(self.model ,self.val_loader,self.top_cand_retrieval,window,'L2',device)
+     
         
 
     def _reset_metrics(self):
@@ -62,6 +53,7 @@ class Trainer(BaseTrainer):
         pass 
 
     def _send_to_device(self,input):
+        # Send data structure to GPU 
         output = []
         if isinstance(input,list):
             for item in input:
@@ -78,7 +70,6 @@ class Trainer(BaseTrainer):
                 output[k]=value
         else:
             output = input.to(self.device)
-        #value = value.cuda(non_blocking=True)
         return output
 
 # ===================================================================================================================
@@ -87,7 +78,6 @@ class Trainer(BaseTrainer):
     
     
     def _train_epoch(self, epoch):
-        #self.html_results.save()
         
         self.logger.info('\n')
         self.model.train()
@@ -104,12 +94,9 @@ class Trainer(BaseTrainer):
             
             input = next(dataloader)
             input_tonsor = self._send_to_device(input)
-        
                     
             batch_data ,info= self.model(input_tonsor)
             
-            #batch_data /= self.batch_size
-            #batch_data.backward()
 
             for key,value in info.items():
                 if key in epoch_loss_list:
@@ -124,19 +111,16 @@ class Trainer(BaseTrainer):
             tbar.update()
 
             if batch_idx % self.batch_size == 0:
-                #self.model.mean_grad()
+                # Update model every batch_size iteration
                 self.optimizer.step()
                 self.optimizer.zero_grad()
             
-        #if epoch%50==0:
-        #    self.batch_size += 50
 
         epoch_perfm = {}
         for key,value in epoch_loss_list.items():
             epoch_perfm[key] = np.mean(value)
         
         epoch_perfm['loss'] = epoch_loss/batch_idx
-        #epoch_perfm ={'loss':,'ap':np.mean(epoch_ap),'an':np.mean(epoch_an)}
         self._write_scalars_tb('train',epoch_perfm,epoch)
 
         return epoch_perfm
@@ -149,7 +133,6 @@ class Trainer(BaseTrainer):
 
 
     def _valid_epoch(self,epoch):
-        
 
         overall_scores = self.eval_approach.run()
 
@@ -157,8 +140,6 @@ class Trainer(BaseTrainer):
         for i, score in overall_scores.items():
             self._write_scalars_tb(f'val@{i}',score,epoch)
         return overall_scores,[]
-        
-        return(overall_scores,descriptors)
 
 
 
