@@ -27,12 +27,12 @@ SUMMER = [ {'xmin':-39,'xmax':-1,'ymax':7,'ymin':4.5},
 
 def summer_align(xy):
     import math
-    xy = xy[:,0:2].copy().transpose()
+    xy = xy[:,0:2].copy().transpose() # Grid
     myx = np.mean(xy,axis=1).reshape(2,1)
 
     #print(xy)
     xyy= xy - myx
-    theta = math.radians(-4)
+    theta = math.radians(-4) # Align the map with the grid 
 
     rot_matrix = np.array([[math.cos(theta), -math.sin(theta)],
                           [ math.sin(theta),  math.cos(theta)]])
