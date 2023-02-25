@@ -43,7 +43,6 @@ def summer_align(xy):
 
 PREPROCESSING = Tr.Compose([Tr.ToTensor()])
 
-MODALITIES = ['range','projection','remissions','mask']
 
 def subsampler(universe,num_sub_samples):
         assert  len(universe)>num_sub_samples
@@ -82,26 +81,13 @@ def gen_ground_truth(   poses,
         pose    = poses[i,:].reshape((1,-1))
         map_frame_idx  = indices[:i]
         dist_meter  = np.sqrt(np.sum((pose -_map_)**2,axis=1))
-        #dist_meter = np.linalg.norm(pose-_map_,axis=1)
 
-        #dist= np.sqrt((pose[0]-_map_[:,0])**2 + (pose[1]-_map_[:,1])**2)
         dist = dist_meter/ np.max(dist_meter)
 
-        #frame_dist = np.linalg.norm(i-map_frame_idx)
-        #frame_dist= np.sqrt((i-map_frame_idx)**2 + (i-map_frame_idx)**2)
-        #frame_dist /= np.max(frame_dist)
-
-        #alpha = dist/frame_dist
-        # Sort distance and get smallest  outside ROI 
-        #sort_=np.argsort(alpha[:i-roi])
-        
-        #pos_idx = np.where(dist_meter[sort_] < pos_range)[0]
         pos_idx = np.where(dist_meter[:i-roi] < pos_range)[0]
         
         if len(pos_idx)>0:
-            # anchors=i
-            # positives = pos_idx
-            #print(len(pos))
+    
             n_coord=  poses[i].shape[0]
             pa = poses[i].reshape(-1,n_coord)
             pp = poses[pos_idx].reshape(-1,n_coord)
@@ -115,23 +101,6 @@ def gen_ground_truth(   poses,
                 min_sort = np.argsort(dist_meter[pos])
                 positive.append(pos[min_sort])
                 anchor.append(i)
-
-        # Select only those positives that are in the same line then the anchor
-        #an_seg_bool = get_roi_points(pose,ASEGMENTS)
-        #an_seg = np.where(an_seg_bool==True)[0]
-        #print(an_seg)
-
-        #pos_seg_bool = get_roi_points(poses[pos_idx,:],ASEGMENTS)
-        #pos_seg = np.where(pos_seg_bool==True)[0]
-        #pos_idx_ref = [idx for idx, pos in enumerate(pos_seg) if pos in an_seg]
-        #print(pos_seg)
-        # save
-        #if  len(pos_idx)>0:
-        #    anchor.append(i)
-        #    #positive.append(sort_[pos_idx])
-        #    positive.append(pos_idx)
-        #else: 
-        #    sort_=-1
     
     # Negatives
     negatives= []
@@ -178,8 +147,6 @@ def get_point_cloud_files(dir):
         print("[ERR] Path does not exist!")
     files = [f.split('.')[0] for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
     return(files)
-
-
 
 
 class parser():
@@ -332,7 +299,6 @@ class ORCHARDSEval(OrchardDataset):
         if self.mode == 'RAM':
             self.inputs = self.load_RAM()
 
-
     def get_GT_Map(self):
         return(self.table)
     
@@ -346,7 +312,6 @@ class ORCHARDSEval(OrchardDataset):
         
         plc = self.preprocessing(data)
         return(plc,global_index)
-        return data
 
     def load_RAM(self):
         img   = {}       
@@ -401,7 +366,6 @@ class ORCHARDSTriplet(OrchardDataset):
                         mode='Disk', 
                         modality = 'projection', 
                         aug=False,
-                        num_subsamples = 0,
                         **argv):
 
         super(ORCHARDSTriplet,self).__init__(root,dataset,sequence, sync = sync, modality=modality,**argv)
@@ -410,7 +374,6 @@ class ORCHARDSTriplet(OrchardDataset):
         self.aug_flag = aug
         self.mode = mode
         self.eval_mode = False
-        #self.line_rois = ASEGMENTS
 
         self.preprocessing = PREPROCESSING
         verbose = True
@@ -420,7 +383,6 @@ class ORCHARDSTriplet(OrchardDataset):
         self.num_samples = len(self._get_point_cloud_file_())
         self.idx_universe = np.arange(self.num_samples)
         # Eval data
-        #self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
         self.poses = self._get_pose_()
 
         if 'subsample' in argv and argv['subsample'] > 0:
@@ -435,45 +397,7 @@ class ORCHARDSTriplet(OrchardDataset):
         
         self.anchors= np.array(self.anchors)[subsetidx]
         self.map_idx  = np.setxor1d(self.idx_universe,self.anchors)
-        
-
-    def line_wise_triplet_split(self,gt_line_labels,anchors,num_neg,num_pos):
-        classes = np.unique(gt_line_labels)
-        positives =[]
-        negatives = []
-        all_idx = np.arange(len(gt_line_labels))
-        for anchor in anchors:
-            my_line = gt_line_labels[anchor]
-            # Positives
-            all_positives = np.where(gt_line_labels==my_line)[0]
-            positives_idx = all_positives[all_positives!=anchor] # Remove current anchor idx
-            positive_random_idx = np.random.randint(0,len(positives_idx),num_pos)
-            positives.append(positives_idx[positive_random_idx])
-            all_negative_idx  = np.setxor1d(all_idx,positives_idx)
-            neg_random_idx = np.random.randint(0,len(all_negative_idx),num_neg)
-            negatives.append(all_negative_idx[neg_random_idx])
-        
-        return np.array(positives),np.array(negatives)
-
-
-
-
-    def set_subsampler(self,percentage):
-        num_samples = int(len(self.anchors)*percentage)
-        print("Number of samples: " + str(num_samples))
-        subset_idx = subsampler(self.anchors,num_samples)
-        # Select subsets
-        self.anchors =  np.array(self.anchors)[subset_idx]
-        self.positive = np.array(self.positive)[subset_idx]
-        self.negative = np.array(self.negative)[subset_idx]
-        # Filter repeated samples to maintain memory footprint low
-        from utils.utils  import unique2D
-        positive = unique2D(self.positive) 
-        negative = unique2D(self.negative)
-        self.idx_universe =np.unique(np.concatenate((self.anchors,positive,negative)))
-        self.num_samples = len(self.idx_universe)
-
-       
+               
         
     def load_RAM(self):
         img   = {}       
@@ -554,12 +478,8 @@ class ORCHARDSTriplet(OrchardDataset):
         segments = np.ones(pose.shape[0],dtype=np.int8)*-1
         for i, roi in enumerate(self.line_rois):
             roi_dx = get_roi_points(pose,roi)
-            #print(roi_dx.sum())
-            #assert all(segments[roi_dx]==-1) 
             segments[roi_dx] = i 
         return(segments)
-
-
 
 
 # ===================================================================================================================
@@ -579,22 +499,18 @@ class ORCHARDS():
         import copy
         test_set = None
         train_set = ORCHARDSTriplet(root = kwargs['root'],
-                                            mode = kwargs['mode'],
-                                            **train_loader['data'],
-                                            ground_truth = train_loader['ground_truth']
-                                            #subsample = 0.5
+                                    mode = kwargs['mode'],
+                                    **train_loader['data'],
+                                    ground_truth = train_loader['ground_truth']
                                             )
 
         if split_mode == 'cross-val':
             # Cross-validation. Train and test sets are from different sequences
-            
-            #train_set.comp_ground_truth(train_loader['ground_truth'])   
             test_set = ORCHARDSEval( root =  kwargs['root'],
-                                                mode = kwargs['mode'],
-                                                #num_subsamples = num_subsamples,
-                                                **test_loader['data'],
-                                                ground_truth = test_loader['ground_truth']
-                                                )
+                                        mode = kwargs['mode'],
+                                        **test_loader['data'],
+                                        ground_truth = test_loader['ground_truth']
+                                        )
          
 
         elif  split_mode == 'train-test':
@@ -609,8 +525,6 @@ class ORCHARDS():
             train_set, test_set = data.random_split(train_set, [train_set_size, valid_set_size])
             
             test_set.dataset = copy.copy(test_set.dataset) # Mandatory to guarantee independence from the training
-
-            #train_set.comp_ground_truth(train_loader['ground_truth'])
             train_set.dataset.load_subset(train_set.indices)
             
             print("Train set: " + str(len(train_set.indices)))
@@ -618,27 +532,15 @@ class ORCHARDS():
             train_set = train_set.dataset
 
             test_set.dataset.set_eval_mode(True)
-            #test_set.comp_ground_truth(test_loader['ground_truth'])
             test_set.dataset.load_subset(test_set.indices)
             test_set = test_set.dataset
             
-            #train_set.dataset.set_eval_mode(False)
         else:
             # Test on the same dataset as trained (Only for debugging)
             test_set =  copy.copy(train_set)
-
-            #train_set.comp_ground_truth(train_loader['ground_truth'])
-            #train_set.load_subset(train_set.indices)
-            #train_set = train_set.dataset
-
             test_set.set_eval_mode(True)
-            #test_set.comp_ground_truth(test_loader['ground_truth'])
-            #test_set.dataset.load_subset(test_set.indices)
-            #test_set = test_set.dataset
-        
-        #print(test_set.indices)
-        #print(train_set.indices)
 
+    
         self.trainloader  = DataLoader(train_set,
                                     batch_size = 1, #train_cfg['batch_size'],
                                     shuffle    = train_loader['shuffle'],
@@ -664,7 +566,6 @@ class ORCHARDS():
     
     def get_label_distro(self):
         raise NotImplemented
-		#return  1-np.array(self.label_disto)
     
 
 def conv2PIL(image):

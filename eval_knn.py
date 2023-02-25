@@ -33,9 +33,7 @@ def load_dataset(inputs,session,max_points=50000,debug=False):
                         test_loader    = session['val_loader'],
                         mode          = inputs.memory,
                     )
-                        #sensor        = sensor_cfg,
-                        #debug         = debug,
-                        #max_points = 30000)
+
 
     return(loader.get_val_loader())
 
