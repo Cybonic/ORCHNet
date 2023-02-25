@@ -49,7 +49,6 @@ def load_dataset(dataset,session,memory,max_points=None,debug=False):
                         train_loader  = session['train_loader'],
                         test_loader    = session['val_loader'],
                         mode          = memory,
-                        sensor        = sensor_cfg,
                         split_mode    = 'train-test', # ['train-test','cross-val']
                         )
     
@@ -159,19 +158,10 @@ if __name__ == '__main__':
 
   FLAGS, unparsed = parser.parse_known_args()
   
-  # Configuration conditions that must be met
-  #assert not (FLAGS.modality=='bev' and FLAGS.backbone.endswith('pointnet')), 'BEV modality does not work with pointnet'
-  #assert not (FLAGS.modality=='pcl' and  'resnet' in FLAGS.model), 'PCL modality does not work with resnet'
   
   torch.cuda.empty_cache()
   torch.autograd.set_detect_anomaly(True)
-  #force_cudnn_initialization()
   
-  # open arch config file
-  cfg_file = os.path.join('dataloader','sensor-cfg.yaml')
-  print("Opening data config file: %s" % cfg_file)
-  sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
-
   session_cfg_file = os.path.join('sessions', FLAGS.dataset + '.yaml')
   print("Opening session config file: %s" % session_cfg_file)
   SESSION = yaml.safe_load(open(session_cfg_file, 'r'))
@@ -257,8 +247,7 @@ if __name__ == '__main__':
           config = SESSION,
           loader = orchard_loader,
           device = FLAGS.device,
-          run_name = run_name,
-          train_epoch_zero = True 
+          run_name = run_name
           )
   
   trainer.Train()

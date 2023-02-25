@@ -70,7 +70,8 @@ class PlaceRecognition():
         
     def run(self):
         
-        assert isinstance(self.top_cand,list)
+        if not isinstance(self.top_cand,list):
+            self.top_cand = [self.top_cand]
 
         
         self.descriptors = self.generate_descriptors(self.model,self.loader)
@@ -89,12 +90,11 @@ class PlaceRecognition():
         for anchor in tqdm(self.anchors,"Retrivel"):
             database_idx = self.database[:anchor-self.windows] # 
             # Split descriptors
-            query_dptrs =  np.array([self.descriptors[i] for i in [anchor] if i in descriptor_idx ])
-            map_dptrs = np.array([self.descriptors[i] for i in database_idx if i in descriptor_idx ])
+            query_dptrs = np.array([self.descriptors[i] for i in [anchor] if i in descriptor_idx ])
+            map_dptrs   = np.array([self.descriptors[i] for i in database_idx if i in descriptor_idx ])
             # Retrieve loops 
             retrieved_loops ,scores = retrieval_knn(query_dptrs, map_dptrs, top_cand = self.max_top, metric = self.eval_metric)
-            #if len(retrieved_loops)==0:
-            #    continue
+
             pred_loops.append(retrieved_loops[0])
         # Evaluate retrieval
         pred_loops = np.array(pred_loops)
@@ -157,10 +157,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser("./infer.py")
 
     parser.add_argument(
-        '--model', '-m',
+        '--backbone', '-m',
         type=str,
         required=False,
-        default='VLAD_pointnet',
+        default='pointnet',
         help='Directory to get the trained model.'
     )
     
@@ -266,19 +266,26 @@ if __name__ == '__main__':
     print("Opening data config file: %s" % cfg_file)
     sensor_cfg = yaml.safe_load(open(cfg_file , 'r'))
 
-
     session_cfg_file = os.path.join('sessions', FLAGS.session + '.yaml')
     print("Opening session config file: %s" % session_cfg_file)
     SESSION = yaml.safe_load(open(session_cfg_file, 'r'))
 
-    SESSION['model']['type'] = FLAGS.model
+    # Model parameters
+    model_cfg = os.path.join('sessions','model.yaml')
+    MODEL_PARM = yaml.safe_load(open(model_cfg, 'r'))
+    assert FLAGS.backbone in MODEL_PARM,'Backbone param do not exist'
+    print("Opening model config file: %s" % model_cfg)
+    model_param = MODEL_PARM[FLAGS.backbone]
+
+    model_ = ORCHNet(backbone_name=FLAGS.backbone,**model_param)
+    model_wrapper = model.ModelWrapper(model_,**SESSION['modelwrapper'])
+
+    # SESSION['model']['type'] = FLAGS.model
     print("----------")
     print("INTERFACE:")
     print("Root: ", SESSION['root'])
-    #print("Dataset  -> Validation: ", SESSION['val_loader']['data']['dataset'])
-    #print("Sequence -> Validation: ", SESSION['val_loader']['data']['sequence'])
     print("Memory: ", FLAGS.memory)
-    print("Model:  ", FLAGS.model)
+    print("Model:  ", FLAGS.backbone)
     print("Debug:  ", FLAGS.debug)
     print("Resume: ", FLAGS.resume)
     print(f'Device: {FLAGS.device}')
@@ -291,17 +298,21 @@ if __name__ == '__main__':
     ###################################################################### 
     SESSION['train_loader']['data']['max_points'] = FLAGS.max_points
     SESSION['val_loader']['data']['max_points'] = FLAGS.max_points
-    modality = FLAGS.modality + '_param'
 
-    SESSION[modality]['max_samples'] = FLAGS.max_points # For VLAD one as to define the number of samples
-    model_ = model.ModelWrapper(**SESSION['model'],loss= [], **SESSION[modality])
-  
-    #run_name['model'] = FLAGS.model
-    #run_name['experiment'] = FLAGS.experiment
-  
+    # Model parameters
+    model_cfg = os.path.join('sessions','model.yaml')
+    MODEL_PARM = yaml.safe_load(open(model_cfg, 'r'))
+    assert FLAGS.backbone in MODEL_PARM,'Backbone param do not exist'
+    print("Opening model config file: %s" % model_cfg)
+    model_param = MODEL_PARM[FLAGS.backbone]
+
+    model_ = ORCHNet(backbone_name=FLAGS.backbone,**model_param)
+    model_wrapper = model.ModelWrapper(model_,**SESSION['modelwrapper'])
+
+
     SESSION['retrieval']['top_cand'] = list(range(1,25,1))
 
-    pl = PlaceRecognition(model_,dataloader,25,'L2',FLAGS.device)
+    pl = PlaceRecognition(model_,dataloader,25,600,'L2',FLAGS.device) # ,windows,eval_metric,device
     
     results = pl.run()
 

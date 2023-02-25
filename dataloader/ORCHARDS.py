@@ -385,9 +385,6 @@ class ORCHARDSTriplet(OrchardDataset):
         # Eval data
         self.poses = self._get_pose_()
 
-        if 'subsample' in argv and argv['subsample'] > 0:
-            self.set_subsampler(argv['subsample'])
-
          # Load to RAM
         if self.mode == 'RAM':
             self.inputs = self.load_RAM()

@@ -18,7 +18,7 @@ class Trainer(BaseTrainer):
                         loader,
                         device = 'cpu',
                         run_name = 'default',
-                        train_epoch_zero = False
+                        train_epoch_zero = True
                         ):
 
         super(Trainer, self).__init__(model, resume, config,run_name=run_name,device=device,train_epoch_zero=train_epoch_zero)
