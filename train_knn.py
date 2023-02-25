@@ -62,7 +62,7 @@ if __name__ == '__main__':
       '--backbone', '-m',
       type=str,
       required=False,
-      default='resnet50',
+      default='pointnet',
       help='Directory to get the trained model.'
   )
 
@@ -104,14 +104,6 @@ if __name__ == '__main__':
       type=int,
       required=False,
       default=30,
-      help='Directory to get the trained model.'
-  )
-
-  parser.add_argument(
-      '--modality',
-      type=str,
-      required=False,
-      default='bev', # [pcl,bev]
       help='Directory to get the trained model.'
   )
 
@@ -168,8 +160,8 @@ if __name__ == '__main__':
   FLAGS, unparsed = parser.parse_known_args()
   
   # Configuration conditions that must be met
-  assert not (FLAGS.modality=='bev' and FLAGS.backbone.endswith('pointnet')), 'BEV modality does not work with pointnet'
-  assert not (FLAGS.modality=='pcl' and  'resnet' in FLAGS.model), 'PCL modality does not work with resnet'
+  #assert not (FLAGS.modality=='bev' and FLAGS.backbone.endswith('pointnet')), 'BEV modality does not work with pointnet'
+  #assert not (FLAGS.modality=='pcl' and  'resnet' in FLAGS.model), 'PCL modality does not work with resnet'
   
   torch.cuda.empty_cache()
   torch.autograd.set_detect_anomaly(True)
@@ -184,15 +176,22 @@ if __name__ == '__main__':
   print("Opening session config file: %s" % session_cfg_file)
   SESSION = yaml.safe_load(open(session_cfg_file, 'r'))
   
+  # Model parameters
+  model_cfg = os.path.join('sessions','model.yaml')
+  MODEL_PARM = yaml.safe_load(open(model_cfg, 'r'))
+  assert FLAGS.backbone in MODEL_PARM,'Backbone param do not exist'
+  print("Opening model config file: %s" % model_cfg)
+  model_param = MODEL_PARM[FLAGS.backbone]
+
   # Update config file with new settings
-  SESSION['model']['minibatch_size']  = FLAGS.mini_batch_size
+  SESSION['modelwrapper']['minibatch_size']  = FLAGS.mini_batch_size
   SESSION['val_loader']['batch_size'] = FLAGS.batch_size
-  SESSION['train_loader']['data']['modality'] = FLAGS.modality
-  SESSION['val_loader']['data']['modality'] = FLAGS.modality
-  SESSION['model']['type'] =  FLAGS.backbone
+  SESSION['train_loader']['data']['modality'] = model_param['modality']
+  SESSION['val_loader']['data']['modality'] = model_param['modality']
   SESSION['trainer']['epochs'] =  FLAGS.epoch
   SESSION['loss']['type'] = FLAGS.loss
 
+  model_param['max_points'] = FLAGS.max_points
   SESSION['train_loader']['data']['max_points'] = FLAGS.max_points
   SESSION['val_loader']['data']['max_points'] = FLAGS.max_points
 
@@ -209,16 +208,16 @@ if __name__ == '__main__':
   print("Max Points: " + str(SESSION['val_loader']['data']['max_points']))
   print("\n========== MODEL =========")
   print("Backbone : ", FLAGS.backbone)
-  print("Resume: ", FLAGS.loss)
-  print("Loss: ", FLAGS.resume)
-  print("MiniBatch Size: ", str(SESSION['model']['minibatch_size']))
+  print("Resume: ",  FLAGS.resume )
+  print("Loss: ",FLAGS.loss)
+  print("MiniBatch Size: ", str(SESSION['modelwrapper']['minibatch_size']))
   print("\n==========================")
   print(f'Memory: {FLAGS.memory}')
   print(f'Device: {FLAGS.device}')
   print("Loss: %s" %(SESSION['loss']['type']))
   print("Experiment: %s" %(FLAGS.experiment))
   print("Max epochs: %s" %(FLAGS.epoch))
-  print("Modality: %s" %(FLAGS.modality))
+  print("Modality: %s" %(model_param['modality']))
   print("----------\n")
   
   # For repeatability
@@ -239,21 +238,17 @@ if __name__ == '__main__':
   print(f'Loss: {loss}')
   print("*"*30)
 
-  # Get model parameters based on the modality
-  modality = FLAGS.modality + '_param'
-  # Load the model
-  SESSION[modality]['max_samples'] = FLAGS.max_points # For VLAD one as to define the number of samples
 
-  param = {**SESSION[modality]}
-  param = {'in_channels':3,'featdim': 1024,'outdim':2048}
-  model_ = ORCHNet(backbone_name='resnet50',**param)
+  model_ = ORCHNet(backbone_name=FLAGS.backbone,**model_param)
+  model_wrapper = model.ModelWrapper(model_,loss = loss,**SESSION['modelwrapper'])
 
-  model_wrapper = model.ModelWrapper(model_,loss = loss,)
+  print("*"*30)
+  print("Model: %s" %(str(model_wrapper)))
+  print("*"*30)
 
-  
   run_name = {  'dataset': str(SESSION['train_loader']['data']['sequence']),
                 'experiment':os.path.join(FLAGS.experiment,str(loss)), 
-                'model': FLAGS.backbone
+                'model': str(model_wrapper)
                 }
 
   trainer = Trainer(
@@ -261,10 +256,9 @@ if __name__ == '__main__':
           resume = FLAGS.resume,
           config = SESSION,
           loader = orchard_loader,
-          iter_per_epoch = 10, # Verify this!!!
           device = FLAGS.device,
           run_name = run_name,
-          train_epoch_zero = False 
+          train_epoch_zero = True 
           )
   
   trainer.Train()

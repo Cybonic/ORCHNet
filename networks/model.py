@@ -8,9 +8,7 @@ import math
 class ModelWrapper(nn.Module):
     def __init__(self,  model,
                         loss        = None,
-                        output_dim  = 256, 
                         minibatch_size = 3, 
-                        pretrained_backbone= False,  
                         device = 'cuda',
                         **args,
                         ):
@@ -24,11 +22,6 @@ class ModelWrapper(nn.Module):
         self.batch_counter = 0 
         self.model = model
         
-        #self.model = modeling.__dict__[type](output_dim   = output_dim, 
-        #                                    output_stride = 4, 
-        #                                    pretrained_backbone = pretrained_backbone,
-        #                                    **args )
-
 
     def mean_grad(self):
         if self.batch_counter == 0:
@@ -59,8 +52,6 @@ class ModelWrapper(nn.Module):
         
         batch_loss = 0
 
-        #self.batch_counter +=1 # 
-        #self.minibatch_size = 20
         mini_batch_total_iteration = math.ceil(num_neg/self.minibatch_size)
         for i in range(0,mini_batch_total_iteration): # This works because neg < pos
             
@@ -77,8 +68,7 @@ class ModelWrapper(nn.Module):
 
             pclt = pclt.type(torch.cuda.FloatTensor)
             pred = self.model(pclt)
-            #pred = F.softmax(pred,dim=1) # Normalize descriptors such that ||D||2 = 1
-            # sum_values = torch.sum(pred,dim=1) # Used to check if descriptors are normalized 
+            
             a_idx = num_anchor
             p_idx = num_pos+num_anchor
             n_idx = num_pos+num_anchor + num_neg
@@ -107,4 +97,5 @@ class ModelWrapper(nn.Module):
         self.model.load_state_dict(checkpoint['state_dict'])
         print("Loader pretrained model: " + path)
 
-    
+    def __str__(self):
+        return str(self.model) + '-' + str(self.loss)

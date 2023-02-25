@@ -1,0 +1,20 @@
+
+
+resnet50:
+  pretrained_backbone: False
+  out_dim: 512
+  feat_dim: 2048
+  in_channels: 3
+  max_points: 512
+  modality: 'bev'
+
+pointnet:
+  out_dim: 2048
+  feat_dim: 1024
+  in_channels: 3
+  use_tnet: False
+  max_points: 20000
+  modality: 'pcl'
+  
+
+

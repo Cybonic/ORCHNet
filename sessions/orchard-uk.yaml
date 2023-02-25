@@ -55,21 +55,10 @@ val_loader:
   shuffle: False
   #rotation: [180,-45,-45]
 
-model:
-  type: 'AttVLAD_resnet50'
+modelwrapper:
+  type: 'ORCHNet'
   minibatch_size: 10
-  pretrained_backbone: True
-  output_dim: 2048
-  use_tnet: False
-  #in_channels: 1
 
-bev_param:
-  in_channels: 3
-  max_samples: 256
-
-pcl_param:
-  in_channels: 1
-  max_samples: 128
 
 loss:
   type: 'TripletLoss'

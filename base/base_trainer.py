@@ -14,7 +14,7 @@ def get_instance(module, name, config, *args):
 
 
 class BaseTrainer:
-    def __init__(self, model, resume, config, iters_per_epoch, train_logger=None, run_name='default',device='cpu',train_epoch_zero=False):
+    def __init__(self, model, resume, config, train_logger=None, run_name='default',device='cpu',train_epoch_zero=False):
         
         self.train_epoch_zero = train_epoch_zero
         self.model = model
@@ -38,25 +38,18 @@ class BaseTrainer:
         self.epochs = cfg_trainer['epochs']
         self.do_validation = cfg_trainer['report_val']
         self.save_period = cfg_trainer['save_period']
-        self.model_name = self.config['model']['type']
+        self.model_name = str(self.model)
         
         # OPTIMIZER
         lr = float(config['optimizer']['args']['lr'])
         trainable_params = [#{'params': filter(lambda p:p.requires_grad, self.model.get_backbone_params()),'lr': 0.1*lr},
-                                {'params': filter(lambda p:p.requires_grad, self.model.get_backbone_params()),'lr': 0.1*lr},
+                                {'params': filter(lambda p:p.requires_grad, self.model.get_backbone_params()),'lr': lr},
                                  {'params':filter(lambda p:p.requires_grad, self.model.get_classifier_params()),'lr': lr}
                                 ]
 
         self.optimizer = get_instance(torch.optim, 'optimizer', config, trainable_params)
         
-        #model_params = sum([i.shape.numel() for i in list(model.parameters())])
-        #opt_params   = sum([i.shape.numel() for j in self.optimizer.param_groups for i in j['params']])
-        #assert opt_params == model_params, 'some params are missing in the opt'
-        
-        # Learning Rate Sheduler
-        # sheduler_type = config['optimizer']['lr_scheduler']['type']
-        # t0 = config['optimizer']['lr_scheduler']['restart']
-        
+
         # SHEDULER
         sheduler_type = config['optimizer']['lr_scheduler']
         args = config[sheduler_type]

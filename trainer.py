@@ -16,13 +16,12 @@ class Trainer(BaseTrainer):
                         resume,
                         config,
                         loader,
-                        iter_per_epoch,
                         device = 'cpu',
                         run_name = 'default',
                         train_epoch_zero = False
                         ):
 
-        super(Trainer, self).__init__(model, resume, config, iter_per_epoch,run_name=run_name,device=device,train_epoch_zero=train_epoch_zero)
+        super(Trainer, self).__init__(model, resume, config,run_name=run_name,device=device,train_epoch_zero=train_epoch_zero)
 
         self.trainer_cfg    = config
         self.train_loader   = loader.get_train_loader()

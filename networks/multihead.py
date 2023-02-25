@@ -66,7 +66,7 @@ class MultiHead(nn.Module):
     self.fusion= nn.Parameter(torch.zeros(1,3))
     # Initialization
     nn.init.normal_(self.fusion.data, mean=0, std=init_std)
-    print(self.fusion.data)
+    # print(self.fusion.data)
 
 
   def forward(self,x):

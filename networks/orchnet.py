@@ -11,22 +11,24 @@ from .multihead import MultiHead
 
 
 class ORCHNet(nn.Module):
-  def __init__(self,backbone_name:str,in_channels:int,featdim:int,outdim:int, **argv):
+  def __init__(self,backbone_name:str,in_channels:int,feat_dim:int,out_dim:int, **argv):
     super(ORCHNet,self).__init__()
     self.backbone_name = backbone_name
     #self.classifier = classifier
-    
+    modality = argv.pop('modality')
     if self.backbone_name == 'resnet50':
       return_layers = {'layer4': 'out'}
       #assert 'param' in argv, 'Resnet arguments not available'
-      backbone = resnet.__dict__[backbone_name](in_channels,**argv)
+      pretrained = argv.pop('pretrained_backbone')
+      max_points = argv.pop('max_points')
+      backbone = resnet.__dict__[backbone_name](pretrained,**argv)
       self.backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
     else:
-      assert 'param' in argv, 'PointNet arguments not available'
-      self.backbone = pointnet.PointNet_features(dim_k=featdim,**argv)
+      max_points = argv.pop('max_points')
+      self.backbone = pointnet.PointNet_features(in_dim=in_channels, dim_k=feat_dim,**argv)
 
 
-    self.head = MultiHead(outdim=outdim)
+    self.head = MultiHead(outdim=out_dim)
    
   def forward(self,x):
     b = x.shape[0]
@@ -50,6 +52,9 @@ class ORCHNet(nn.Module):
 
   def get_classifier_params(self):
     return self.head.parameters()
+  
+  def __str__(self):
+    return "ORCHNet_" + self.backbone_name
 
 
 
