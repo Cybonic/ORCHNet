@@ -1,5 +1,5 @@
-# ORCHNet
-
+# Orchard Dataset
+![plot](fig/robot_orchards.png)
 
 ## Description
 Robust and reliable place recognition and loop closure detection in agricultural environments is still an open problem. In particular,  orchards are a difficult case study due to structural similarity across the entire field. In this work, we address the place recognition problem in orchards resorting to 3D LiDAR data, which is considered a key modality for robustness. 
